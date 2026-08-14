@@ -1,0 +1,154 @@
+@startuml activity_predator_hunt
+title Ecosystem Simulation — Activity Diagram: Predator.hunt()
+
+skinparam activityBackgroundColor #E8F4FD
+skinparam activityBorderColor #2C3E50
+skinparam activityArrowColor #2C3E50
+skinparam activityStartColor #2C3E50
+skinparam activityEndColor #2C3E50
+skinparam activityDiamondBackgroundColor #FFF3E0
+skinparam activityDiamondBorderColor #E67E22
+skinparam noteBackgroundColor #FFFDE7
+skinparam noteBorderColor #F9A825
+skinparam activityFontSize 13
+
+start
+
+:Predator.hunt() invoked\nfrom update();
+
+if (world == null?) then (yes)
+  :return;\nnote right: World reference\nnot yet injected
+  stop
+else (no)
+endif
+
+:Decrement targetMemory\n(if targetMemory > 0);
+
+if (target != null\nAND targetMemory > 0\nAND target.isAlive()?) then (yes — existing target still valid)
+
+    note right
+        <b>Target Memory System</b>
+        Predator remembers a target
+        for up to 5 update steps.
+    end note
+
+    :chase(target)
+    Move toward target's (x, y)
+    by speed units;
+
+    :Calculate Manhattan distance
+    |deltaX| + |deltaY|;
+
+    if (distance <= 2?) then (yes — within attack range)
+
+        :Attempt attack on target;
+
+        partition "attack(target)" {
+            if (target instanceof Herbivore\nAND target.isAlive()?) then (yes)
+
+                :Fetch herbivore.getDefensePower();
+
+                note right
+                    <b>Success formula</b>
+                    successChance =
+                    attackPower / (attackPower + defensePower)
+                    e.g. 7/(7+5) = 0.583 → 58.3%
+                end note
+
+                :Generate Math.random() [0.0, 1.0);
+
+                if (random < successChance?) then (yes — attack succeeds)
+                    :herbivore.die();
+                    :gainEnergy(30);
+                    :statistics.recordSuccessfulHunt();
+                    if (eventLogPanel != null?) then (yes)
+                        :eventLogPanel.logEntityEvent\n("hunted successfully", "Predator");
+                    else (no)
+                    endif
+                    :return true;
+                else (no — attack fails)
+                    :statistics.recordFailedHunt();
+                    :return false;
+                end if
+
+            else (no — not a Herbivore or already dead)
+                :return false;
+            end if
+        }
+
+        :Reset target = null\nReset targetMemory = 0;
+        :return\n(exit hunt after attack attempt);
+        stop
+
+    else (no — too far away, keep chasing)
+        :return\n(will chase again next step);
+        stop
+    end if
+
+else (no — no valid remembered target)
+
+    :Search World for neighbors\nwithin radius 10\nworld.getNeighbors(this, 10);
+
+    note right
+        Uses Manhattan box search:
+        |dx| <= 10 AND |dy| <= 10
+    end note
+
+    :Filter neighbors:\nkeep only alive Herbivore instances;
+
+    if (any Herbivores found?) then (yes)
+
+        :Iterate through Herbivores\nfind minimum Manhattan distance\n→ nearestHerbivore;
+
+        :Set target = nearestHerbivore\nSet targetMemory = 5;
+
+        :chase(nearestHerbivore)
+        Move toward herbivore's (x, y)
+        by speed units;
+
+        if (minDistance <= 2?) then (yes — new target immediately in range)
+
+            :Attempt attack on nearestHerbivore;
+
+            partition "attack(nearestHerbivore)" {
+                :Fetch herbivore.getDefensePower();
+
+                :successChance =\nattackPower / (attackPower + defensePower);
+
+                :Generate Math.random() [0.0, 1.0);
+
+                if (random < successChance?) then (yes — attack succeeds)
+                    :herbivore.die();
+                    :gainEnergy(30);
+                    :statistics.recordSuccessfulHunt();
+                    if (eventLogPanel != null?) then (yes)
+                        :eventLogPanel.logEntityEvent\n("hunted successfully", "Predator");
+                    else (no)
+                    endif
+                    :return true;
+                else (no — attack fails)
+                    :statistics.recordFailedHunt();
+                    :return false;
+                end if
+            }
+
+            :Reset target = null\nReset targetMemory = 0;
+
+        else (no — moved closer, will attack next step if still in range)
+        end if
+
+    else (no Herbivores in radius 10)
+
+        note right
+            No hunt action taken.
+            Predator will call move()
+            after hunt() returns in update().
+        end note
+
+    end if
+
+end if
+
+stop
+
+@enduml

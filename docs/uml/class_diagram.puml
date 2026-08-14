@@ -1,0 +1,339 @@
+@startuml class_diagram
+title Ecosystem Simulation — Class Diagram
+
+skinparam classAttributeIconSize 0
+skinparam classFontSize 13
+skinparam classHeaderBackgroundColor #E8F4FD
+skinparam abstractClassHeaderBackgroundColor #FFF3E0
+skinparam interfaceBackgroundColor #E8F5E9
+skinparam ArrowColor #2C3E50
+skinparam classBorderColor #2C3E50
+skinparam packageBorderColor #7F8C8D
+skinparam packageBackgroundColor #FAFAFA
+skinparam noteBackgroundColor #FFFDE7
+skinparam noteBorderColor #F9A825
+
+' ─────────────────────────────────────────────────────────────────
+'  ENTITIES PACKAGE
+' ─────────────────────────────────────────────────────────────────
+package "com.ecosystem.simulation.entities" {
+
+    abstract class Entity {
+        # id : int
+        # x : int
+        # y : int
+        # alive : boolean
+        # world : World
+        # statistics : Statistics
+        # eventLogPanel : EventLogPanel
+        - {static} nextId : int
+        ..
+        + Entity(x : int, y : int)
+        + {abstract} update() : void
+        + isAlive() : boolean
+        + die() : void
+        + getId() : int
+        + getX() : int
+        + getY() : int
+        + moveTo(newX : int, newY : int) : void
+        + getPosition() : String
+        + setWorld(world : World) : void
+        + setStatistics(stats : Statistics) : void
+        + setEventLogPanel(panel : EventLogPanel) : void
+    }
+
+    abstract class Organism {
+        # energy : int
+        # age : int
+        # maxEnergy : int
+        ..
+        + Organism(x : int, y : int, energy : int)
+        + gainEnergy(amount : int) : void
+        + consumeEnergy(amount : int) : void
+        + die() : void
+        + getEnergy() : int
+        + getAge() : int
+        # increaseAge() : void
+        + isStarving() : boolean
+        + getMaxEnergy() : int
+        + setMaxEnergy(maxEnergy : int) : void
+    }
+
+    abstract class Animal {
+        # speed : double
+        ..
+        + Animal(x : int, y : int, energy : int, speed : double)
+        + move() : void
+        + getSpeed() : double
+        + setSpeed(speed : double) : void
+    }
+
+    class Plant {
+        - growthRate : double
+        - reproductionCooldown : int
+        - {static} MAX_AGE : int = 100
+        ..
+        + Plant(x : int, y : int, energy : int, growthRate : double)
+        + update() : void
+        + grow() : void
+        + reproduce() : void
+        + getGrowthRate() : double
+        + setGrowthRate(rate : double) : void
+    }
+
+    class Herbivore {
+        # defensePower : int
+        - reproductionCooldown : int
+        - grazeCooldown : int
+        - {static} MAX_AGE : int = 80
+        ..
+        + Herbivore(x : int, y : int, energy : int, speed : double, defensePower : int)
+        + update() : void
+        + graze() : void
+        + defend(attacker : Predator) : boolean
+        + flee(predator : Predator) : void
+        + reproduce() : void
+        + getDefensePower() : int
+        + setDefensePower(power : int) : void
+    }
+
+    class Predator {
+        # attackPower : int
+        - target : Entity
+        - targetMemory : int
+        - reproductionCooldown : int
+        - {static} MAX_AGE : int = 60
+        ..
+        + Predator(x : int, y : int, energy : int, speed : double, attackPower : int)
+        + update() : void
+        + hunt() : void
+        + attack(target : Entity) : boolean
+        + chase(target : Entity) : void
+        + reproduce() : void
+        + getAttackPower() : int
+        + setAttackPower(power : int) : void
+    }
+
+}
+
+' ─────────────────────────────────────────────────────────────────
+'  SIMULATION PACKAGE
+' ─────────────────────────────────────────────────────────────────
+package "com.ecosystem.simulation.simulation" {
+
+    class World {
+        - entities : List<Entity>
+        - environment : Environment
+        - width : int
+        - height : int
+        ..
+        + World(width : int, height : int)
+        + addEntity(entity : Entity) : void
+        + removeEntity(entity : Entity) : void
+        + getEntities() : List<Entity>
+        + getEntitiesAt(x : int, y : int) : List<Entity>
+        + getNeighbors(entity : Entity, radius : int) : List<Entity>
+        + getEnvironment() : Environment
+        + getWidth() : int
+        + getHeight() : int
+        + removeDeadEntities() : int
+        + getAliveEntityCount() : int
+        + countAliveByType(typeName : String) : int
+    }
+
+    class SimulationEngine {
+        - world : World
+        - ruleEngine : RuleEngine
+        - statistics : Statistics
+        - eventLogPanel : EventLogPanel
+        - running : boolean
+        - timeStep : int
+        - silent : boolean
+        ..
+        + SimulationEngine(worldWidth : int, worldHeight : int)
+        + initialize(entities : List<Entity>) : void
+        + run() : void
+        + step() : void
+        - updateAllEntities() : void
+        - applyRulesToAllEntities() : void
+        - removeDeadEntities() : void
+        - updateEnvironment() : void
+        - printStatus() : void
+        + stop() : void
+        + isRunning() : boolean
+        + getTimeStep() : int
+        + getWorld() : World
+        + getRuleEngine() : RuleEngine
+        + getStatistics() : Statistics
+        + generateReport() : String
+        + setEventLogPanel(panel : EventLogPanel) : void
+        + setSilent(silent : boolean) : void
+    }
+
+}
+
+' ─────────────────────────────────────────────────────────────────
+'  ENVIRONMENT PACKAGE
+' ─────────────────────────────────────────────────────────────────
+package "com.ecosystem.simulation.environment" {
+
+    class Environment {
+        - obstacles : boolean[][]
+        - foodLevel : int
+        - width : int
+        - height : int
+        ..
+        + Environment(width : int, height : int)
+        + regenerateFood() : void
+        + getFoodLevel() : int
+        + getObstacle(x : int, y : int) : boolean
+        + setObstacle(x : int, y : int, value : boolean) : void
+    }
+
+}
+
+' ─────────────────────────────────────────────────────────────────
+'  RULES PACKAGE
+' ─────────────────────────────────────────────────────────────────
+package "com.ecosystem.simulation.rules" {
+
+    class RuleEngine {
+        - rules : List<Rule>
+        ..
+        + RuleEngine()
+        + loadRules(filePath : String) : void
+        + evaluate(entity : Entity) : void
+        + getRules() : List<Rule>
+    }
+
+    class Rule {
+        - name : String
+        - targetType : String
+        - condition : String
+        - action : String
+        ..
+        + Rule(name : String, targetType : String, condition : String, action : String)
+        + matches(entity : Entity) : boolean
+        + evaluateCondition(entity : Entity) : boolean
+        - getFieldValue(entity : Entity, field : String) : int
+        + executeAction(entity : Entity) : void
+        + getName() : String
+        + getTargetType() : String
+        + getCondition() : String
+        + getAction() : String
+    }
+
+    class RuleParseException {
+        - lineNumber : int
+        ..
+        + RuleParseException(message : String)
+        + RuleParseException(message : String, lineNumber : int)
+        + getLineNumber() : int
+    }
+
+}
+
+' ─────────────────────────────────────────────────────────────────
+'  STATISTICS PACKAGE
+' ─────────────────────────────────────────────────────────────────
+package "com.ecosystem.simulation.statistics" {
+
+    class Statistics {
+        - populationMap : Map<String, Integer>
+        - birthMap : Map<String, Integer>
+        - deathMap : Map<String, Integer>
+        - successfulHunts : int
+        - failedHunts : int
+        - plantsConsumed : int
+        ..
+        + Statistics()
+        + recordInitialEntity(typeName : String) : void
+        + recordBirth(typeName : String) : void
+        + recordDeath(typeName : String) : void
+        + recordSuccessfulHunt() : void
+        + recordFailedHunt() : void
+        + recordPlantConsumed() : void
+        + generateReport() : String
+    }
+
+}
+
+' ─────────────────────────────────────────────────────────────────
+'  GUI PACKAGE (abbreviated — presentation layer)
+' ─────────────────────────────────────────────────────────────────
+package "com.ecosystem.simulation.gui" {
+
+    class MainWindow
+    class EventLogPanel {
+        + logEntityEvent(event : String, entityType : String) : void
+    }
+    class WorldPanel
+    class StatisticsPanel
+    class ControlPanel
+    class RuleBuilderPanel
+
+}
+
+' ─────────────────────────────────────────────────────────────────
+'  INHERITANCE RELATIONSHIPS
+' ─────────────────────────────────────────────────────────────────
+Entity       <|--  Organism
+Organism     <|--  Animal
+Organism     <|--  Plant
+Animal       <|--  Herbivore
+Animal       <|--  Predator
+
+RuleParseException --|> Exception
+
+' ─────────────────────────────────────────────────────────────────
+'  COMPOSITION  (filled diamond = owner cannot exist without owned)
+' ─────────────────────────────────────────────────────────────────
+SimulationEngine *-down- World        : owns >
+SimulationEngine *-right- RuleEngine  : owns >
+SimulationEngine *-right- Statistics  : owns >
+World            *-down- Environment  : owns >
+
+' ─────────────────────────────────────────────────────────────────
+'  AGGREGATION  (hollow diamond = contains but independent lifecycle)
+' ─────────────────────────────────────────────────────────────────
+World            o--  Entity          : stores >
+RuleEngine       o--  Rule            : manages >
+
+' ─────────────────────────────────────────────────────────────────
+'  ASSOCIATIONS / DEPENDENCIES
+' ─────────────────────────────────────────────────────────────────
+Entity ..> World         : queries
+Entity ..> Statistics    : records
+
+Entity ..> EventLogPanel : <<architecture violation>>\nlogs events directly
+
+SimulationEngine ..> EventLogPanel : propagates to entities
+
+' ─────────────────────────────────────────────────────────────────
+'  NOTES
+' ─────────────────────────────────────────────────────────────────
+note top of Entity
+  <b>Architecture Violation</b>
+  Entity holds a reference to EventLogPanel
+  (a Swing GUI component). The domain model
+  should not depend on the presentation layer.
+  Fix: introduce a SimulationEventListener interface.
+end note
+
+note right of Rule
+  <b>Bug: matches() uses exact class name equality.</b>
+  Rule "MaximumAge | Organism | age > 100 | die"
+  never fires on Predator, Herbivore, or Plant
+  because getClass().getSimpleName() returns
+  "Predator", not "Organism".
+  Fix: use instanceof with the class hierarchy.
+end note
+
+note bottom of Environment
+  <b>Dead Code</b>
+  obstacles[][] is never consulted by any entity.
+  foodLevel regenerates each step but is never
+  consumed by Herbivore.graze().
+end note
+
+@enduml

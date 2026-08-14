@@ -1,0 +1,164 @@
+package com.ecosystem.simulation.environment;
+
+/**
+ * Represents the environmental conditions in the simulation world.
+ * Manages obstacles and food availability.
+ * 
+ * This class demonstrates the OOP principle of ENCAPSULATION by hiding
+ * environmental details and providing controlled access through methods.
+ * 
+ * Key OOP Principles Demonstrated:
+ * - Encapsulation: Private fields with public methods
+ * - Single Responsibility: Only manages environmental conditions
+ * 
+ * @author Ecosystem Simulation Team
+ * @version 1.0
+ */
+public class Environment {
+    
+    /**
+     * 2D array representing obstacles in the world.
+     * true = obstacle present, false = free space
+     */
+    private boolean[][] obstacles;
+    
+    /**
+     * Current food level available in the environment.
+     * Represents overall food availability for herbivores.
+     */
+    private int foodLevel;
+    
+    /**
+     * Maximum food level the environment can support.
+     */
+    private int maxFoodLevel;
+    
+    /**
+     * Width of the environment (number of columns).
+     */
+    private int width;
+    
+    /**
+     * Height of the environment (number of rows).
+     */
+    private int height;
+    
+    /**
+     * Constructor for Environment.
+     * Initializes environment with given dimensions.
+     * 
+     * @param width The width of the environment
+     * @param height The height of the environment
+     */
+    public Environment(int width, int height) {
+        this.width = width;
+        this.height = height;
+        this.obstacles = new boolean[height][width];
+        this.foodLevel = 50;  // Default starting food level
+        this.maxFoodLevel = 100;  // Maximum food capacity
+    }
+    
+    /**
+     * Adds an obstacle at the specified coordinates.
+     * 
+     * @param x The x coordinate (column)
+     * @param y The y coordinate (row)
+     */
+    public void addObstacle(int x, int y) {
+        if (isValidCoordinate(x, y)) {
+            obstacles[y][x] = true;
+        }
+    }
+    
+    /**
+     * Removes an obstacle at the specified coordinates.
+     * 
+     * @param x The x coordinate (column)
+     * @param y The y coordinate (row)
+     */
+    public void removeObstacle(int x, int y) {
+        if (isValidCoordinate(x, y)) {
+            obstacles[y][x] = false;
+        }
+    }
+    
+    /**
+     * Checks if the specified coordinates are blocked by an obstacle.
+     * 
+     * @param x The x coordinate (column)
+     * @param y The y coordinate (row)
+     * @return true if blocked, false otherwise
+     */
+    public boolean isBlocked(int x, int y) {
+        if (!isValidCoordinate(x, y)) {
+            return true;  // Out of bounds is considered blocked
+        }
+        return obstacles[y][x];
+    }
+    
+    /**
+     * Gets the current food level in the environment.
+     * 
+     * @return Current food level
+     */
+    public int getFoodLevel() {
+        return this.foodLevel;
+    }
+    
+    /**
+     * Sets the food level in the environment.
+     * Food level cannot exceed maxFoodLevel.
+     * 
+     * @param foodLevel The new food level
+     */
+    public void setFoodLevel(int foodLevel) {
+        this.foodLevel = foodLevel;
+        if (this.foodLevel > this.maxFoodLevel) {
+            this.foodLevel = this.maxFoodLevel;
+        }
+        if (this.foodLevel < 0) {
+            this.foodLevel = 0;
+        }
+    }
+    
+    /**
+     * Regenerates food in the environment.
+     * Food level increases by a small amount each time step.
+     */
+    public void regenerateFood() {
+        int regenerationAmount = 5;
+        this.foodLevel += regenerationAmount;
+        if (this.foodLevel > this.maxFoodLevel) {
+            this.foodLevel = this.maxFoodLevel;
+        }
+    }
+    
+    /**
+     * Checks if the given coordinates are within environment bounds.
+     * 
+     * @param x The x coordinate (column)
+     * @param y The y coordinate (row)
+     * @return true if valid, false otherwise
+     */
+    private boolean isValidCoordinate(int x, int y) {
+        return x >= 0 && x < width && y >= 0 && y < height;
+    }
+    
+    /**
+     * Gets the width of the environment.
+     * 
+     * @return The width
+     */
+    public int getWidth() {
+        return this.width;
+    }
+    
+    /**
+     * Gets the height of the environment.
+     * 
+     * @return The height
+     */
+    public int getHeight() {
+        return this.height;
+    }
+}

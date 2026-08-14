@@ -1,0 +1,18 @@
+# Build output
+target/
+
+# Tool-local / agent config (not project source)
+
+# IDE metadata
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+
+# OS / editor temp files
+.DS_Store
+*~
+*.tmp
+*.swp
