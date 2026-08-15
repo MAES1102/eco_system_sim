@@ -23,11 +23,21 @@ public abstract class Animal extends Organism implements Movable {
      * Higher values allow the animal to move further in one time step.
      */
     protected double speed;
-    
+
+    /**
+     * Search radius (in grid cells) used when looking for prey/food. Was
+     * previously a hardcoded literal inside {@code hunt()}/{@code graze()};
+     * promoted to a configurable field so it can be sourced from
+     * {@code simulation.properties} via {@code EntityFactory}. Defaults match
+     * the original hardcoded values (10 for predators, 18 for herbivores) — see
+     * each subclass's constructor.
+     */
+    protected int visionRange = 10;
+
     /**
      * Constructor for Animal.
      * Initializes animal with position, energy, and speed.
-     * 
+     *
      * @param x The initial x coordinate
      * @param y The initial y coordinate
      * @param energy The starting energy level
@@ -36,13 +46,16 @@ public abstract class Animal extends Organism implements Movable {
      */
     public Animal(int x, int y, int energy, double speed) {
         super(x, y, energy);
-        
+
         if (speed <= 0) {
             throw new IllegalArgumentException("Speed must be positive: " + speed);
         }
-        
+
         this.speed = speed;
     }
+
+    public int getVisionRange() { return this.visionRange; }
+    public void setVisionRange(int visionRange) { this.visionRange = visionRange; }
     
     /**
      * Moves this animal in a random direction.

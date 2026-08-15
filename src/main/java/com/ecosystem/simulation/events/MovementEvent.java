@@ -3,16 +3,16 @@ package com.ecosystem.simulation.events;
 import com.ecosystem.simulation.entities.Entity;
 
 /**
- * Discrete event fired when an entity moves to a new position.
+ * Discrete event recording that an entity moved to a new position.
  *
- * <p>Movement events are created by {@link com.ecosystem.simulation.simulation.SimulationEngine}
- * after each entity update by comparing the entity's position before and after its
- * {@code update()} call.  This keeps entity classes clean — they do not need to know
- * about the event system.</p>
- *
- * <p>Storing the <em>origin</em> coordinates alongside the <em>destination</em>
- * enables path-replay, heat-map generation, and territory analysis without
- * modifying any simulation logic.</p>
+ * <p><b>Observational only — this event does not cause the movement.</b> The
+ * entity's position is already changed synchronously inside its own
+ * {@link EntityActivityEvent#execute} (via {@code Entity.update()}), <em>before</em>
+ * this event is even constructed. {@code MovementEvent} exists purely to give the
+ * DES event log / GUI a structured, timestamped record of what changed, for
+ * logging, statistics, or future heat-map/territory analysis — it is
+ * deliberately a no-op on {@link #execute}, and is documented as such rather
+ * than presented as causal.</p>
  */
 public class MovementEvent extends SimulationEvent {
 
@@ -21,18 +21,7 @@ public class MovementEvent extends SimulationEvent {
     private final int toX;
     private final int toY;
 
-    /**
-     * Constructs a movement event.
-     *
-     * @param scheduledTime the tick at which the movement happened
-     * @param source        the entity that moved
-     * @param fromX         origin x coordinate
-     * @param fromY         origin y coordinate
-     * @param toX           destination x coordinate
-     * @param toY           destination y coordinate
-     */
-    public MovementEvent(int scheduledTime, Entity source,
-                         int fromX, int fromY, int toX, int toY) {
+    public MovementEvent(int scheduledTime, Entity source, int fromX, int fromY, int toX, int toY) {
         super(scheduledTime, source);
         this.fromX = fromX;
         this.fromY = fromY;
@@ -40,21 +29,22 @@ public class MovementEvent extends SimulationEvent {
         this.toY = toY;
     }
 
-    /** Hook point for movement-based analytics (heat maps, territory tracking). */
+    /** No-op by design — see class Javadoc. */
     @Override
-    public void execute() {
-        // Extend here to populate a heat-map array, update territory ownership, etc.
+    public void execute(SchedulingContext ctx) {
+        // Intentionally empty: this event only records movement that has already
+        // happened; it does not, and must not, mutate position itself.
     }
 
     @Override
     public String getDescription() {
         Entity e = getSource();
         String id = (e != null) ? e.getClass().getSimpleName() + "#" + e.getId() : "Unknown";
-        return id + " moved (" + fromX + "," + fromY + ") → (" + toX + "," + toY + ")";
+        return id + " moved (" + fromX + "," + fromY + ") -> (" + toX + "," + toY + ")";
     }
 
     public int getFromX() { return fromX; }
     public int getFromY() { return fromY; }
-    public int getToX()   { return toX; }
-    public int getToY()   { return toY; }
+    public int getToX() { return toX; }
+    public int getToY() { return toY; }
 }

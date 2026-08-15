@@ -3,42 +3,43 @@ package com.ecosystem.simulation.events;
 import com.ecosystem.simulation.entities.Entity;
 
 /**
- * Discrete event fired when any organism reproduces.
+ * Discrete event fired when a parent successfully triggers reproduction.
+ *
+ * <p>Sole owner of "a new entity now exists": creates the offspring (via
+ * {@link com.ecosystem.simulation.entities.EntityFactory}, using configured
+ * species defaults — not genetic inheritance), adds it to the world, records
+ * the birth exactly once, and schedules the offspring's first
+ * {@link EntityActivityEvent}. The parent's own energy cost is deducted inside
+ * the parent's own activity event (its own state, not this event's concern).</p>
  */
 public class ReproductionEvent extends SimulationEvent {
 
-    /** The offspring entity created by this reproduction. */
-    private final Entity offspring;
-
-    /**
-     * Constructs a reproduction event.
-     *
-     * @param scheduledTime the tick at which reproduction occurred
-     * @param parent        the organism that reproduced
-     * @param offspring     the newly created organism
-     */
-    public ReproductionEvent(int scheduledTime, Entity parent, Entity offspring) {
+    public ReproductionEvent(int scheduledTime, Entity parent) {
         super(scheduledTime, parent);
-        this.offspring = offspring;
     }
 
-    /**
-     * Executes the reproduction event.
-     * Hook point for population-limit enforcement, lineage recording, etc.
-     */
     @Override
-    public void execute() {
-        // Hook: update a genealogy tree, trigger a population-limit check, etc.
+    public void execute(SchedulingContext ctx) {
+        Entity parent = getSource();
+        if (parent == null || !parent.isAlive() || parent.isPendingRemoval()) {
+            return;
+        }
+        Entity offspring = ctx.getEntityFactory().createOffspringNear(parent);
+        if (offspring == null) {
+            return;
+        }
+        ctx.getWorld().addEntity(offspring);
+        ctx.getStatistics().recordBirth(offspring.getClass().getSimpleName());
+        ctx.schedule(new EntityActivityEvent(ctx.getClock() + 1, offspring));
+        if (ctx.getSimulationEventListener() != null) {
+            ctx.getSimulationEventListener().onEntityEvent("reproduced", parent.getClass().getSimpleName());
+        }
     }
 
     @Override
     public String getDescription() {
         Entity parent = getSource();
-        String parentId    = (parent   != null) ? parent.getClass().getSimpleName()   + "#" + parent.getId()   : "Unknown";
-        String offspringId = (offspring != null) ? offspring.getClass().getSimpleName() + "#" + offspring.getId() : "Unknown";
-        return parentId + " reproduced → " + offspringId;
+        String id = (parent != null) ? parent.getClass().getSimpleName() + "#" + parent.getId() : "Unknown";
+        return id + " reproduced";
     }
-
-    /** Returns the offspring entity. */
-    public Entity getOffspring() { return offspring; }
 }

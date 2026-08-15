@@ -1,0 +1,94 @@
+@startuml rule_processing
+title Ecosystem Simulation — Activity Diagram: Rule Authoring & Evaluation Pipeline
+
+skinparam activityBackgroundColor #E8F4FD
+skinparam activityBorderColor #2C3E50
+skinparam activityArrowColor #2C3E50
+skinparam activityStartColor #2C3E50
+skinparam activityEndColor #2C3E50
+skinparam activityDiamondBackgroundColor #FFF3E0
+skinparam activityDiamondBorderColor #E67E22
+skinparam noteBackgroundColor #FFFDE7
+skinparam noteBorderColor #F9A825
+skinparam activityFontSize 13
+
+start
+
+partition "Authoring (player, no Java required)" {
+    :Player types/edits free text in\nRuleEditorPanel or config/rules.txt;
+    note right
+        Example:
+        ColdStress | Herbivore |
+        env.temperature < 5 AND energy < 40 |
+        energy -= 8, speed *= 0.8
+    end note
+}
+
+partition "Lexing (Lexer)" {
+    :Split "Name | TargetType | condition | actionList"\non the 4 top-level '|' characters;
+    :Tokenize condition and action clauses\ninto Token(type, text, numberValue, position);
+    if (illegal character?) then (yes)
+        :throw RuleParseException\n(line, column, message);
+        stop
+    else (no)
+    endif
+}
+
+partition "Parsing (Parser — recursive descent)" {
+    :orExpr / andExpr / unary / comparison\n/ numExpr / term / factor\n(condition grammar, with precedence\nOR < AND < NOT < comparison < + - < * /);
+    :actionList / action / mutationOp\n(action grammar);
+    if (unbalanced parens, dangling operator,\ndivision by literal zero, ...?) then (yes)
+        :throw RuleParseException\n(statically detectable syntax error);
+        stop
+    else (no)
+    endif
+    :Produce immutable AST:\nConditionNode / NumericNode / RuleAction\n(sealed interfaces + records);
+}
+
+partition "Semantic validation (Rule constructor + RuleVocabulary)" {
+    :Resolve TargetType string to a Class\n(RuleVocabulary.resolveTargetType);
+    :Walk the AST; for every Reference,\nWritable target, and Command name,\ncall RuleVocabulary.requireReadable /\nrequireWritable / requireCommand;
+    if (attribute/command not registered,\nor not applicable to this target type?) then (yes)
+        :throw RuleParseException\n(e.g. "'flee' is not valid for target\ntype 'Predator' (requires Herbivore)");
+        stop
+    else (no — statically valid)
+    endif
+    :Rule object constructed successfully;
+}
+
+partition "Persistence (RuleRepository)" {
+    if (GUI action = Save?) then (yes)
+        :Write ALL current rules to rules.txt.tmp;
+        :Files.move(tmp, active, ATOMIC_MOVE,\nfallback to REPLACE_EXISTING);
+        note right
+            Active file is never opened for writing
+            directly -- a failed save can only leave
+            an incomplete .tmp, never corrupt the
+            last valid rules.txt.
+        end note
+    else (no — just Validate)
+    endif
+}
+
+partition "Runtime evaluation (every EntityActivityEvent)" {
+    :EntityActivityEvent.execute() calls\nRuleEngine.evaluate(entity, world, statistics, ctx)\nafter the entity's own update();
+    :for each Rule, in file order:\nrule.matches(entity) (class-hierarchy walk)\nAND rule.evaluateCondition(ctx);
+    if (condition true?) then (yes)
+        :rule.executeActions(ctx) --\nEvaluator applies each action\nleft to right, sequentially;
+        note right
+            Mutation -> compute new value via
+            RuleVocabulary's writable setter
+            (range-clamped); NaN/Infinity result
+            is skipped, state left unchanged.
+            Command -> RuleVocabulary's registered
+            Action (may schedule a DES event, e.g.
+            "die" -> Entity.scheduleRemoval()).
+        end note
+    else (no)
+        :rule does not fire this tick\n(level-triggered: re-checked\nnext activity event);
+    endif
+}
+
+stop
+
+@enduml

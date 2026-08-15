@@ -53,25 +53,30 @@ if (target != null\nAND targetMemory > 0\nAND target.isAlive()?) then (yes — e
                     successChance =
                     attackPower / (attackPower + defensePower)
                     e.g. 7/(7+5) = 0.583 → 58.3%
+                    (coercion polymorphism: the int operands are
+                    implicitly widened to double for this division)
                 end note
 
                 :Generate Math.random() [0.0, 1.0);
 
                 if (random < successChance?) then (yes — attack succeeds)
-                    :herbivore.die();
-                    :gainEnergy(30);
-                    :statistics.recordSuccessfulHunt();
-                    if (eventLogPanel != null?) then (yes)
-                        :eventLogPanel.logEntityEvent\n("hunted successfully", "Predator");
-                    else (no)
-                    endif
+                    :schedulingContext.schedule(\nnew PredationEvent(clock, this, herbivore, 45));
+                    note right
+                        attack() ONLY decides success/failure and
+                        schedules the event — it does not itself
+                        mutate energy, cooldown, or statistics.
+                        See PredationEvent.execute(): sole owner
+                        of the predator-side kill effects, which
+                        schedules the prey's DeathEvent in turn.
+                    end note
                     :return true;
                 else (no — attack fails)
                     :statistics.recordFailedHunt();
+                    note right : no cross-entity mutation occurred,\nso this is recorded directly, no event needed
                     :return false;
                 end if
 
-            else (no — not a Herbivore or already dead)
+            else (no — not a Herbivore, already dead, or pendingRemoval)
                 :return false;
             end if
         }
@@ -87,11 +92,13 @@ if (target != null\nAND targetMemory > 0\nAND target.isAlive()?) then (yes — e
 
 else (no — no valid remembered target)
 
-    :Search World for neighbors\nwithin radius 10\nworld.getNeighbors(this, 10);
+    :Search World for neighbors\nwithin visionRange\nworld.getNeighbors(this, visionRange);
 
     note right
         Uses Manhattan box search:
-        |dx| <= 10 AND |dy| <= 10
+        |dx| <= visionRange AND |dy| <= visionRange
+        visionRange is configurable via
+        simulation.properties (default 10)
     end note
 
     :Filter neighbors:\nkeep only alive Herbivore instances;
@@ -118,13 +125,8 @@ else (no — no valid remembered target)
                 :Generate Math.random() [0.0, 1.0);
 
                 if (random < successChance?) then (yes — attack succeeds)
-                    :herbivore.die();
-                    :gainEnergy(30);
-                    :statistics.recordSuccessfulHunt();
-                    if (eventLogPanel != null?) then (yes)
-                        :eventLogPanel.logEntityEvent\n("hunted successfully", "Predator");
-                    else (no)
-                    endif
+                    :schedulingContext.schedule(\nnew PredationEvent(clock, this, herbivore, 45));
+                    note right : same event-scheduling design\nas the partition above
                     :return true;
                 else (no — attack fails)
                     :statistics.recordFailedHunt();
@@ -137,7 +139,7 @@ else (no — no valid remembered target)
         else (no — moved closer, will attack next step if still in range)
         end if
 
-    else (no Herbivores in radius 10)
+    else (no Herbivores within visionRange)
 
         note right
             No hunt action taken.

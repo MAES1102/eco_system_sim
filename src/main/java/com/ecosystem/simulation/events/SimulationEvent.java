@@ -2,39 +2,40 @@ package com.ecosystem.simulation.events;
 
 import com.ecosystem.simulation.entities.Entity;
 
+import java.util.concurrent.atomic.AtomicLong;
+
 /**
  * Abstract base class for all discrete simulation events.
  *
- * <p>This class is the cornerstone of the <strong>Discrete-Event Simulation</strong>
- * architecture.  Instead of evaluating every entity every tick with no memory of
- * <em>what caused</em> a state change, the system records each significant occurrence
- * as a typed, self-describing {@code SimulationEvent} object.  Events are ordered by
- * their {@link #scheduledTime} inside an {@link EventQueue} and processed in
- * chronological order, just like a real-world DES engine (e.g. SimPy, JSIM).</p>
+ * <p>This is the cornerstone of the future-event-list (FEL) discrete-event
+ * simulation: {@link com.ecosystem.simulation.simulation.SimulationEngine}
+ * never advances its clock by a fixed increment — it always pops the earliest
+ * event from the FEL and sets its clock to that event's {@link #scheduledTime},
+ * so state only ever changes inside {@link #execute}.</p>
  *
  * <h3>OOP concepts demonstrated</h3>
  * <ul>
- *   <li><b>Abstraction</b>: common data ({@code scheduledTime}, {@code source}) and the
- *       abstract contract ({@code execute()}, {@code getDescription()}) are defined
- *       here; concrete behaviour lives in subclasses.</li>
- *   <li><b>Inheritance</b>: {@link DeathEvent}, {@link MovementEvent},
- *       {@link PredationEvent} and {@link ReproductionEvent} all extend this class.</li>
- *   <li><b>Polymorphism (inclusion)</b>: the {@link EventQueue} and
- *       {@link com.ecosystem.simulation.simulation.SimulationEngine} work exclusively
- *       through this base type — {@code event.execute()} dispatches to the correct
- *       subclass at runtime.</li>
+ *   <li><b>Abstraction</b>: common data ({@code scheduledTime}, {@code source},
+ *       {@code sequenceNumber}) and the abstract contract ({@link #execute},
+ *       {@link #getDescription}) are defined here.</li>
+ *   <li><b>Inheritance / inclusion polymorphism</b>: {@link EntityActivityEvent},
+ *       {@link EnvironmentRegenerationEvent}, {@link DeathEvent},
+ *       {@link MovementEvent}, {@link PredationEvent}, and
+ *       {@link ReproductionEvent} all extend this class; the FEL processes them
+ *       exclusively through this base type — {@code event.execute(ctx)} dispatches
+ *       to the correct override at runtime.</li>
  * </ul>
  *
- * <h3>Extending the system</h3>
- * To add a new event type (e.g. {@code WeatherEvent}) simply:
- * <ol>
- *   <li>Create a subclass of {@code SimulationEvent}.</li>
- *   <li>Implement {@link #execute()} and {@link #getDescription()}.</li>
- *   <li>Enqueue an instance via {@code entity.getEventQueue().enqueue(new WeatherEvent(...))}.</li>
- * </ol>
- * No existing code needs to change — satisfying the <em>Open/Closed Principle</em>.
+ * <h3>Deterministic ordering</h3>
+ * <p>{@code java.util.PriorityQueue} does not guarantee FIFO order for elements
+ * that compare equal, so {@link #compareTo} breaks ties on a strictly
+ * monotonically increasing {@code sequenceNumber} assigned at construction —
+ * two events scheduled for the same tick are always processed in the order they
+ * were created.</p>
  */
 public abstract class SimulationEvent implements Comparable<SimulationEvent> {
+
+    private static final AtomicLong NEXT_SEQUENCE = new AtomicLong(0);
 
     /** Simulation tick at which this event should be processed. */
     private final int scheduledTime;
@@ -42,64 +43,53 @@ public abstract class SimulationEvent implements Comparable<SimulationEvent> {
     /** The entity that generated this event (may be {@code null} for world-level events). */
     private final Entity source;
 
-    /**
-     * Constructs a new simulation event.
-     *
-     * @param scheduledTime the tick at which the event occurs (must be &ge; 0)
-     * @param source        the entity that caused this event; {@code null} is allowed
-     *                      for environment-level events
-     * @throws IllegalArgumentException if {@code scheduledTime} is negative
-     */
+    /** Monotonic insertion order, used only to break {@code scheduledTime} ties deterministically. */
+    private final long sequenceNumber;
+
     protected SimulationEvent(int scheduledTime, Entity source) {
         if (scheduledTime < 0) {
             throw new IllegalArgumentException("scheduledTime must be >= 0, got: " + scheduledTime);
         }
         this.scheduledTime = scheduledTime;
         this.source = source;
+        this.sequenceNumber = NEXT_SEQUENCE.getAndIncrement();
     }
 
     /**
      * Executes the effect of this event.
      *
-     * <p>Called by {@link EventQueue#processAll()} for every dequeued event.
-     * Subclasses perform their specific side-effects here (logging, statistics
-     * updates, chained event scheduling, etc.).</p>
-     */
-    public abstract void execute();
-
-    /**
-     * Returns a human-readable description of this event.
-     * Used by the GUI event log and the headless report.
+     * <p>Called by {@link com.ecosystem.simulation.simulation.SimulationEngine}
+     * when this event is popped from the future-event list. Implementations that
+     * mutate other entities/world state must re-validate their preconditions
+     * first (lazy invalidation) — the entity that scheduled this event may have
+     * died or been marked {@code pendingRemoval} in the interim.</p>
      *
-     * @return short description string, e.g. {@code "Predator#3 killed Herbivore#7"}
+     * @param ctx scheduling seam for reading the clock and enqueuing follow-up events
      */
+    public abstract void execute(SchedulingContext ctx);
+
+    /** Short, human-readable description used by the GUI event log and headless report. */
     public abstract String getDescription();
 
-    /**
-     * Returns the simulation tick at which this event is scheduled.
-     *
-     * @return scheduled tick (&ge; 0)
-     */
     public int getScheduledTime() {
         return scheduledTime;
     }
 
-    /**
-     * Returns the entity that generated this event.
-     *
-     * @return source entity, or {@code null} for environment-level events
-     */
     public Entity getSource() {
         return source;
     }
 
     /**
-     * Natural ordering by scheduled time, enabling priority-queue insertion.
-     * Events with the same tick are ordered in FIFO insertion order (stable).
+     * Natural ordering: earliest {@code scheduledTime} first; ties broken by
+     * {@code sequenceNumber} (insertion order) for deterministic FEL processing.
      */
     @Override
     public int compareTo(SimulationEvent other) {
-        return Integer.compare(this.scheduledTime, other.scheduledTime);
+        int byTime = Integer.compare(this.scheduledTime, other.scheduledTime);
+        if (byTime != 0) {
+            return byTime;
+        }
+        return Long.compare(this.sequenceNumber, other.sequenceNumber);
     }
 
     @Override

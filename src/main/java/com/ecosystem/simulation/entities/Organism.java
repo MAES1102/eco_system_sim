@@ -72,23 +72,24 @@ public abstract class Organism extends Entity {
     
     /**
      * Decreases the organism's energy by the specified amount.
-     * If energy reaches 0 or below, the organism dies.
-     * 
+     * If energy reaches 0 or below, this organism's removal is scheduled
+     * (cause: "starvation") rather than dying immediately — {@link Entity#die()}
+     * is only ever called from {@code DeathEvent.execute()}, keeping death
+     * unified through one owner regardless of cause. Calling this from inside
+     * an {@code EntityActivityEvent}'s own execution (the normal case) is
+     * legitimate: routine energy consumption is owned by that activity event.
+     *
      * @param amount The amount of energy to consume
      */
     public void consumeEnergy(int amount) {
         this.energy -= amount;
         if (this.energy <= 0) {
             this.energy = 0;
-            die();
+            scheduleRemoval("starvation");
         }
     }
-    
-    /**
-     * Marks this organism as dead.
-     * Energy depletion is handled by {@link #consumeEnergy(int)}.
-     */
-    // die() inherited from Entity — no organism-specific override needed
+
+    // die() inherited from Entity — only ever called from DeathEvent.execute()
     
     /**
      * Gets the current energy level.

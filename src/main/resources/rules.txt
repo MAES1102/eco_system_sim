@@ -1,55 +1,58 @@
 # =============================================================================
-# Ecosystem Simulation — User-Defined Rules
+# Ecosystem Simulation -- Bundled Default Rules (read-only seed)
 # =============================================================================
-# Format:  RuleName | TargetType | Condition | Action
+# This file is packaged on the classpath and used only once, to bootstrap
+# config/rules.txt the first time the application runs. After that, every
+# load/save/edit touches config/rules.txt only -- this file is never written to.
 #
-# TargetType supports the full class hierarchy:
-#   Entity, Organism, Animal, Predator, Herbivore, Plant
+# Format:  RuleName | TargetType | condition | actionList
 #
-# Condition fields:   energy, age, x, y
-# Condition operators: <  >  <=  >=  ==  !=
+# TargetType: Entity, Organism, Animal, Predator, Herbivore, Plant
 #
-# Action keywords:
-#   die                 — entity is removed from the simulation
-#   move                — animal moves one step randomly
-#   flee                — herbivore retreats (falls back to random move)
-#   grow                — plant gains energy
-#   reproduce           — entity attempts to reproduce
-#   energy -N           — organism loses N energy units  (NEW)
-#   energy +N           — organism gains N energy units  (NEW)
+# condition   := boolean expression with AND / OR / NOT / parentheses / comparisons
+# actionList  := one or more actions separated by commas
+# action      := <writable-attribute> (= | += | -= | *= | /=) <numeric-expr>
+#              | <domain-command>
+#
+# Readable references : energy, age, x, y, speed, attackPower, defensePower,
+#                        growthRate, env.foodLevel, env.temperature, env.width,
+#                        env.height, stat.predatorPopulation,
+#                        stat.herbivorePopulation, stat.plantPopulation
+# Writable attributes  : energy, speed, attackPower, defensePower, growthRate
+# Domain commands      : die, move, flee, grow, reproduce
 #
 # Lines starting with # are comments and are ignored.
 # =============================================================================
 
 # --- Predator rules ---
 
-# Predators die if energy is critically low
 StarvingPredator | Predator | energy < 10 | die
 
-# Cold penalty: simulates harsh weather draining predator energy faster
-# (demonstrates the new  energy -N  action syntax)
-ColdPenalty | Predator | age > 30 | energy -5
+# Cold penalty: harsh temperature drains predator energy faster
+ColdPenalty | Predator | age > 30 AND env.temperature < 10 | energy -= 5
 
-# Desperate predators keep moving in search of food
 DesperatePredator | Predator | energy < 20 | move
 
 # --- Herbivore rules ---
 
-# Old herbivores flee more aggressively (triggered by rule engine)
 OldHerbivore | Herbivore | age > 50 | flee
 
-# Well-fed herbivores gain a small energy bonus (abundant-food bonus)
-WellFedBonus | Herbivore | energy >= 70 | energy +5
+WellFedBonus | Herbivore | energy >= 70 | energy += 5
+
+# Compound temperature rule: cold and hungry herbivores lose energy and slow down
+ColdStress | Herbivore | env.temperature < 5 AND energy < 40 | energy -= 8, speed *= 0.8
 
 # --- Plant rules ---
 
-# Plants with enough stored energy grow faster
 FastPlantGrowth | Plant | energy > 30 | grow
 
-# --- Cross-species rules (use base types for polymorphic matching) ---
+# --- Cross-species rules (target a superclass to match every subtype) ---
 
-# Any organism that exceeds maximum lifespan dies of old age
 MaximumAge | Organism | age > 100 | die
 
-# Any animal that reaches very old age receives a moderate energy penalty
-AgingPenalty | Animal | age > 60 | energy -3
+AgingPenalty | Animal | age > 60 | energy -= 3
+
+# Population-pressure rule referencing simulation statistics: demonstrates a
+# rule that could never be expressed by the old preset-dropdown rule builder
+# (no AND, no statistics reference, no non-energy attribute mutation existed).
+CrowdedForest | Plant | stat.plantPopulation > 100 OR env.foodLevel < 20 | growthRate *= 0.5

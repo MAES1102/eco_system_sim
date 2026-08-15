@@ -1,9 +1,9 @@
 @startuml sequence_simulation_step
-title Ecosystem Simulation — Sequence Diagram: One Simulation Step
+title Ecosystem Simulation — Sequence Diagram: One Discrete-Event step()
 
 skinparam sequenceMessageAlign center
 skinparam responseMessageBelowArrow true
-skinparam maxMessageSize 180
+skinparam maxMessageSize 200
 skinparam sequenceArrowThickness 1.5
 skinparam sequenceBoxBackgroundColor #F0F4F8
 skinparam participantBackgroundColor #E8F4FD
@@ -14,269 +14,95 @@ skinparam noteBorderColor #F9A825
 skinparam sequenceLifeLineBorderColor #2C3E50
 skinparam sequenceDividerBackgroundColor #D5E8D4
 
-actor "Swing Timer\n(GUI Thread)" as Timer
+actor "Swing Timer /\nHeadlessRunner loop" as Driver
 
-participant "SimulationEngine" as SE
-participant "World" as W
-participant "Predator\n:entity" as P
-participant "Herbivore\n:entity" as H
-participant "Plant\n:entity" as PL
+participant "SimulationEngine\n(implements SchedulingContext)" as SE
+participant "EventQueue<SimulationEvent>\n(the future-event list)" as FEL
+participant "EntityActivityEvent\n:predatorActivity" as EAE
+participant "Predator\n:predator" as P
 participant "RuleEngine" as RE
-participant "Rule\n:rule" as R
+participant "PredationEvent" as PE
+participant "DeathEvent" as DE
+participant "Herbivore\n:prey" as H
 participant "Statistics" as ST
-participant "Environment" as ENV
 
-== PHASE 1: step() entry ==
+== Driver requests one external tick ==
 
-Timer -> SE : step()
+Driver -> SE : step()
 activate SE
+SE -> SE : advanceTo(clock + 1)
 
-== PHASE 2: updateAllEntities() ==
+== FEL loop: pop earliest event, adopt its time, execute ==
 
-SE -> SE : updateAllEntities()
-activate SE #DFF0D8
+loop while FEL.peek().scheduledTime <= targetTime
+    SE -> FEL : dequeue()
+    FEL --> SE : event (earliest scheduledTime;\nties broken by sequenceNumber)
+    SE -> SE : clock = event.getScheduledTime()
+    note right of SE
+      The clock is NEVER incremented independently —
+      it only ever adopts a popped event's own time.
+      This is the core discrete-event property.
+    end note
+    SE -> EAE : execute(this)
+    activate EAE
 
-SE -> W : getEntities() : List<Entity>
-W --> SE : [Predator, Herbivore, ..., Plant, ...]
+    EAE -> P : isAlive() / isPendingRemoval()?
+    P --> EAE : alive, not pending
 
-loop for each alive Entity
-
-    alt entity is Predator
-        SE -> P : update()
-        activate P
-
-        P -> W : getNeighbors(this, 10) : List<Entity>
-        W --> P : [nearby entities]
-
-        P -> P : hunt()
-        activate P #FFD700
-            note right of P
-                Finds nearest Herbivore.
-                Calls chase() to move toward it.
-                If distance <= 2, calls attack().
-            end note
-
-            P -> H : getX(), getY()
-            H --> P : coordinates
-
-            P -> P : chase(herbivore)
-            P -> P : moveTo(newX, newY)
-
-            P -> H : getDefensePower()
-            H --> P : defensePower
-
-            note over P
-                successChance =
-                attackPower / (attackPower + defensePower)
-                e.g. 7 / (7+5) = 58%
-            end note
-
-            alt Math.random() < successChance  [attack succeeds]
-                P -> H : die()
-                activate H
-                H --> P
-                deactivate H
-                P -> P : gainEnergy(30)
-                P -> ST : recordSuccessfulHunt()
-            else [attack fails]
-                P -> ST : recordFailedHunt()
-            end
-
-        deactivate P
-
-        P -> P : move()
-        P -> P : consumeEnergy(3)
-        activate P #FFB6C1
-            alt energy <= 0
-                P -> P : die()
-            end
-        deactivate P
-
-        P -> P : increaseAge()
-        alt age >= MAX_AGE (60)
-            P -> P : die()
-        end
-
-        alt energy > maxEnergy * 0.7 AND reproductionCooldown == 0
-            P -> W : countAliveByType("Predator") : int
-            W --> P : count
-            alt count < 8
-                P -> P : reproduce()
-                P -> W : addEntity(newPredator)
-                P -> ST : recordBirth("Predator")
-            end
-        end
-
-        deactivate P
-
-    else entity is Herbivore
-        SE -> H : update()
-        activate H
-
-        H -> W : getNeighbors(this, 10) : List<Entity>
-        W --> H : [nearby entities]
-
-        H -> H : graze()
-        activate H #90EE90
-            note right of H
-                Finds nearest alive Plant.
-                Moves toward it.
-                If distance <= 2 AND grazeCooldown == 0:
-                consumes the plant.
-            end note
-            alt nearestPlant found AND distance <= 2 AND grazeCooldown == 0
-                H -> H : gainEnergy(20)
-                H -> PL : die()
-                H -> W : removeEntity(plant)
-                H -> ST : recordPlantConsumed()
-            end
-        deactivate H
-
-        H -> H : move()
-        H -> H : consumeEnergy(1)
-        H -> H : increaseAge()
-
-        alt age >= MAX_AGE (80)
-            H -> H : die()
-        end
-
-        alt energy > maxEnergy * 0.65 AND reproductionCooldown == 0
-            H -> W : countAliveByType("Herbivore") : int
-            W --> H : count
-            alt count < 35
-                H -> H : reproduce()
-                H -> W : addEntity(newHerbivore)
-                H -> ST : recordBirth("Herbivore")
-            end
-        end
-
-        deactivate H
-
-    else entity is Plant
-        SE -> PL : update()
-        activate PL
-
-        PL -> PL : grow()
-        note right of PL : gainEnergy((int)growthRate)
-
-        PL -> PL : increaseAge()
-        alt age >= MAX_AGE (100)
-            PL -> PL : die()
-        end
-
-        alt energy > maxEnergy * 0.65 AND reproductionCooldown == 0
-            PL -> W : countAliveByType("Plant") : int
-            W --> PL : count
-            alt count < 80
-                PL -> PL : reproduce()
-                PL -> W : addEntity(newPlant)
-                PL -> ST : recordBirth("Plant")
-            end
-        end
-
-        deactivate PL
+    EAE -> P : update()
+    activate P
+    P -> P : hunt() -- decides success only
+    P -> P : consumeEnergy(cost)
+    note right of P : if energy hits 0, schedules\na DeathEvent (cause "starvation")\ninstead of dying directly
+    alt hunt succeeded
+        P -> SE : schedule(new PredationEvent(clock, this, prey, 45))
+        SE -> FEL : enqueue(PredationEvent)
     end
+    deactivate P
 
-end
-deactivate SE
-
-== PHASE 3: applyRulesToAllEntities() ==
-
-SE -> SE : applyRulesToAllEntities()
-activate SE #D5E8D4
-
-SE -> W : getEntities() : List<Entity>
-W --> SE : [Predator, Herbivore, ..., Plant, ...]
-
-loop for each alive Entity
-
-    SE -> RE : evaluate(entity)
+    EAE -> RE : evaluate(predator, world, statistics, this)
     activate RE
-
-    loop for each Rule in rules list
-
-        RE -> R : matches(entity)
-        note right of R
-            <b>Bug:</b> uses exact class name equality.
-            "Organism" rule never matches
-            Predator / Herbivore / Plant.
-        end note
-        R --> RE : boolean
-
-        alt rule matches
-            RE -> R : evaluateCondition(entity)
-            R --> RE : boolean
-
-            alt condition is true
-                RE -> R : executeAction(entity)
-                activate R
-
-                alt action == "die"
-                    R -> P : die()
-                else action == "move"
-                    R -> P : move()
-                else action == "grow"
-                    R -> PL : grow()
-                else action == "flee"
-                    note right of R
-                        Fallback: calls move().
-                        No predator context passed.
-                    end note
-                    R -> H : move()
-                end
-
-                deactivate R
-            end
-        end
-
-    end
-
+    RE -> RE : for each rule in file order:\nmatches? evaluateCondition? executeActions?
     deactivate RE
 
-end
-deactivate SE
-
-== PHASE 4: removeDeadEntities() ==
-
-SE -> SE : removeDeadEntities()
-activate SE #FFE0E0
-
-SE -> W : getEntities() : List<Entity>
-W --> SE : [all entities]
-
-loop for each dead Entity (!entity.isAlive())
-    SE -> ST : recordDeath(entity.getClass().getSimpleName())
-    SE -> W  : removeEntity(entity)
+    EAE -> SE : schedule(new EntityActivityEvent(clock+1, predator))
+    SE -> FEL : enqueue(next activity event)
+    note right of FEL : the activity chain\nself-reschedules while alive
+    deactivate EAE
 end
 
-deactivate SE
+== Later in the same wave: the scheduled PredationEvent is popped ==
 
-== PHASE 5: updateEnvironment() ==
+SE -> FEL : dequeue()
+FEL --> SE : PredationEvent
+SE -> PE : execute(this)
+activate PE
+PE -> P : gainEnergy(45), setFedCooldown(10)
+PE -> ST : recordSuccessfulHunt()
+PE -> H : scheduleRemoval("predation")
+activate H
+H -> H : pendingRemoval = true
+H -> SE : schedule(new DeathEvent(clock, this, "predation"))
+SE -> FEL : enqueue(DeathEvent)
+deactivate H
+deactivate PE
 
-SE -> SE : updateEnvironment()
-activate SE #E0E0FF
+== The scheduled DeathEvent is popped -- sole owner of the death mutation ==
 
-SE -> W   : getEnvironment() : Environment
-W --> SE  : environment
-
-SE -> ENV : regenerateFood()
-note right of ENV
-    foodLevel += 5 (capped at 100).
-    <b>foodLevel is never consumed</b>
-    by any entity — orphaned state.
+SE -> FEL : dequeue()
+FEL --> SE : DeathEvent
+SE -> DE : execute(this)
+activate DE
+DE -> H : die()
+note right of DE
+  DeathEvent.execute() is the ONLY call
+  site of Entity.die() in the running
+  simulation, regardless of cause.
 end note
+DE -> ST : recordDeath("Herbivore")
+DE -> SE : getWorld().removeEntity(prey)
+deactivate DE
 
-deactivate SE
-
-== PHASE 6: Advance time & report ==
-
-SE -> SE : timeStep++
-
-alt NOT silent
-    SE -> SE : printStatus()
-end
-
-SE --> Timer : (step complete)
 deactivate SE
 
 @enduml

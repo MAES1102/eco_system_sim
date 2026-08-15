@@ -85,12 +85,12 @@ class SimulationEntitiesTest {
      * Each call to {@link Predator#update()} must consume exactly 2 energy
      * (the metabolic cost: {@code consumeEnergy(2)}).
      *
-     * <p>The predator is constructed without a World reference, so when
-     * {@code huntCooldown == 0} on the first step, {@link Predator#hunt()}
-     * is called but returns immediately at the {@code world == null} guard —
-     * no energy change from hunting.  {@link Animal#move()} changes position
-     * but not energy.  Only {@code consumeEnergy(2)} affects the energy field,
-     * making the result fully deterministic regardless of the random move.</p>
+     * <p>The predator is constructed without a World reference, so
+     * {@link Predator#hunt()} is called but returns immediately at the
+     * {@code world == null} guard — no energy change from hunting.
+     * {@link Animal#move()} changes position but not energy. Only
+     * {@code consumeEnergy(2)} affects the energy field, making the result
+     * fully deterministic regardless of the random move.</p>
      *
      * <p>Precondition: starting energy (50) must be below the reproduction
      * threshold {@code maxEnergy * 0.6 = 60} so that {@link Predator#reproduce}
@@ -99,10 +99,9 @@ class SimulationEntitiesTest {
     @Test
     void predator_consumesExactlyTwoEnergyPerUpdate() {
         Predator predator = new Predator(0, 0, 50, 2.0, 7);
-        // huntCooldown starts at 0 → hunt() called, returns early (world == null)
-        // huntCooldown set to 2 after the hunt call
-        // move() changes position only
-        // consumeEnergy(2) is the only energy-modifying call
+        // hunt() is called but returns early (world == null) -- no energy change from hunting.
+        // move() changes position only.
+        // consumeEnergy(2) is the only energy-modifying call.
 
         predator.update();
 

@@ -9,20 +9,9 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Unit tests for {@link Rule#matches(com.ecosystem.simulation.entities.Entity)}.
- *
- * <p>These tests verify two guarantees:</p>
- * <ol>
- *   <li><b>Exact-type matching</b> — rules targeting a concrete type such as
- *       {@code "Predator"} still only match {@code Predator} instances (no
- *       regression from the original behaviour).</li>
- *   <li><b>Hierarchy matching</b> — rules targeting an abstract superclass
- *       such as {@code "Organism"} or {@code "Animal"} correctly match all
- *       concrete subclasses in the entity hierarchy.  This was the reported
- *       bug: {@code Rule.matches()} previously used exact class-name equality,
- *       so the rule {@code MaximumAge | Organism | age > 100 | die} never fired
- *       on any entity.</li>
- * </ol>
+ * Unit tests for {@link Rule#matches(com.ecosystem.simulation.entities.Entity)}
+ * and, per the target-type-aware validation added for the rule DSL, for
+ * rejection of unknown target types at construction time.
  *
  * <p>Entity hierarchy under test:</p>
  * <pre>
@@ -36,133 +25,112 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class RuleMatchesTest {
 
-    // ── factory helpers ───────────────────────────────────────────────────
+    private static final RuleVocabulary VOCAB = new RuleVocabulary();
 
-    /** Creates a Rule whose only meaningful property for these tests is targetType. */
-    private static Rule ruleFor(String targetType) {
-        return new Rule("TestRule", targetType, "age > 0", "die");
+    // Uses "x" (Entity-scoped) rather than "age" (Organism-scoped) so this helper
+    // works for every target type this test exercises, including bare "Entity".
+    private static Rule ruleFor(String targetType) throws RuleParseException {
+        return new Rule("TestRule", targetType, "x >= 0", "die", VOCAB);
     }
 
-    private static Predator  aPredator()  { return new Predator (0, 0, 50, 2.0, 7); }
+    private static Predator aPredator() { return new Predator(0, 0, 50, 2.0, 7); }
     private static Herbivore aHerbivore() { return new Herbivore(0, 0, 30, 1.5, 5); }
-    private static Plant     aPlant()     { return new Plant    (0, 0, 50, 2.0);     }
+    private static Plant aPlant() { return new Plant(0, 0, 50, 2.0); }
 
-    // ── exact-type matching — existing behaviour must be preserved ────────
+    // ── exact-type matching ─────────────────────────────────────────────────
 
     @Test
-    void predatorRule_matchesPredator() {
-        assertTrue(ruleFor("Predator").matches(aPredator()),
-                "A 'Predator' rule must match a Predator instance");
+    void predatorRule_matchesPredator() throws RuleParseException {
+        assertTrue(ruleFor("Predator").matches(aPredator()));
     }
 
     @Test
-    void herbivoreRule_matchesHerbivore() {
-        assertTrue(ruleFor("Herbivore").matches(aHerbivore()),
-                "A 'Herbivore' rule must match a Herbivore instance");
+    void herbivoreRule_matchesHerbivore() throws RuleParseException {
+        assertTrue(ruleFor("Herbivore").matches(aHerbivore()));
     }
 
     @Test
-    void plantRule_matchesPlant() {
-        assertTrue(ruleFor("Plant").matches(aPlant()),
-                "A 'Plant' rule must match a Plant instance");
+    void plantRule_matchesPlant() throws RuleParseException {
+        assertTrue(ruleFor("Plant").matches(aPlant()));
     }
 
-    // ── exact-type non-matches — rules must NOT bleed across sibling types ─
+    // ── exact-type non-matches ──────────────────────────────────────────────
 
     @Test
-    void predatorRule_doesNotMatch_herbivore() {
-        assertFalse(ruleFor("Predator").matches(aHerbivore()),
-                "A 'Predator' rule must not match a Herbivore");
-    }
-
-    @Test
-    void predatorRule_doesNotMatch_plant() {
-        assertFalse(ruleFor("Predator").matches(aPlant()),
-                "A 'Predator' rule must not match a Plant");
+    void predatorRule_doesNotMatch_herbivore() throws RuleParseException {
+        assertFalse(ruleFor("Predator").matches(aHerbivore()));
     }
 
     @Test
-    void herbivoreRule_doesNotMatch_predator() {
-        assertFalse(ruleFor("Herbivore").matches(aPredator()),
-                "A 'Herbivore' rule must not match a Predator");
+    void predatorRule_doesNotMatch_plant() throws RuleParseException {
+        assertFalse(ruleFor("Predator").matches(aPlant()));
     }
 
     @Test
-    void herbivoreRule_doesNotMatch_plant() {
-        assertFalse(ruleFor("Herbivore").matches(aPlant()),
-                "A 'Herbivore' rule must not match a Plant");
-    }
-
-    // ── hierarchy matching — the bug that was fixed ───────────────────────
-
-    /**
-     * The MaximumAge rule in rules.txt targets "Organism".
-     * Before the fix this rule fired on exactly zero entities.
-     * After the fix it must fire on all three concrete organism types.
-     */
-    @Test
-    void organismRule_matchesPredator() {
-        assertTrue(ruleFor("Organism").matches(aPredator()),
-                "Rule targeting 'Organism' must match Predator (Predator extends Animal extends Organism)");
+    void herbivoreRule_doesNotMatch_predator() throws RuleParseException {
+        assertFalse(ruleFor("Herbivore").matches(aPredator()));
     }
 
     @Test
-    void organismRule_matchesHerbivore() {
-        assertTrue(ruleFor("Organism").matches(aHerbivore()),
-                "Rule targeting 'Organism' must match Herbivore (Herbivore extends Animal extends Organism)");
+    void herbivoreRule_doesNotMatch_plant() throws RuleParseException {
+        assertFalse(ruleFor("Herbivore").matches(aPlant()));
+    }
+
+    // ── hierarchy matching ──────────────────────────────────────────────────
+
+    @Test
+    void organismRule_matchesPredator() throws RuleParseException {
+        assertTrue(ruleFor("Organism").matches(aPredator()));
     }
 
     @Test
-    void organismRule_matchesPlant() {
-        assertTrue(ruleFor("Organism").matches(aPlant()),
-                "Rule targeting 'Organism' must match Plant (Plant extends Organism)");
-    }
-
-    /**
-     * Animal is the common superclass of Predator and Herbivore only.
-     * Plant extends Organism directly (not Animal), so an "Animal" rule
-     * must NOT match a Plant.
-     */
-    @Test
-    void animalRule_matchesPredator() {
-        assertTrue(ruleFor("Animal").matches(aPredator()),
-                "Rule targeting 'Animal' must match Predator");
+    void organismRule_matchesHerbivore() throws RuleParseException {
+        assertTrue(ruleFor("Organism").matches(aHerbivore()));
     }
 
     @Test
-    void animalRule_matchesHerbivore() {
-        assertTrue(ruleFor("Animal").matches(aHerbivore()),
-                "Rule targeting 'Animal' must match Herbivore");
+    void organismRule_matchesPlant() throws RuleParseException {
+        assertTrue(ruleFor("Organism").matches(aPlant()));
     }
 
     @Test
-    void animalRule_doesNotMatch_plant() {
-        assertFalse(ruleFor("Animal").matches(aPlant()),
-                "Rule targeting 'Animal' must NOT match Plant — Plant does not extend Animal");
+    void animalRule_matchesPredator() throws RuleParseException {
+        assertTrue(ruleFor("Animal").matches(aPredator()));
     }
 
-    /**
-     * Entity is the root of the hierarchy.
-     * A rule targeting "Entity" must match every concrete type.
-     */
     @Test
-    void entityRule_matchesAllConcreteTypes() {
-        assertTrue(ruleFor("Entity").matches(aPredator()),  "Entity rule must match Predator");
-        assertTrue(ruleFor("Entity").matches(aHerbivore()), "Entity rule must match Herbivore");
-        assertTrue(ruleFor("Entity").matches(aPlant()),     "Entity rule must match Plant");
+    void animalRule_matchesHerbivore() throws RuleParseException {
+        assertTrue(ruleFor("Animal").matches(aHerbivore()));
+    }
+
+    @Test
+    void animalRule_doesNotMatch_plant() throws RuleParseException {
+        assertFalse(ruleFor("Animal").matches(aPlant()));
+    }
+
+    @Test
+    void entityRule_matchesAllConcreteTypes() throws RuleParseException {
+        assertTrue(ruleFor("Entity").matches(aPredator()));
+        assertTrue(ruleFor("Entity").matches(aHerbivore()));
+        assertTrue(ruleFor("Entity").matches(aPlant()));
     }
 
     // ── edge cases ────────────────────────────────────────────────────────
 
     @Test
-    void nullEntity_returnsFalse() {
-        assertFalse(ruleFor("Predator").matches(null),
-                "matches(null) must return false without throwing");
+    void nullEntity_returnsFalse() throws RuleParseException {
+        assertFalse(ruleFor("Predator").matches(null));
     }
 
+    /**
+     * Semantic change from the original design: an unrecognised target type is
+     * now rejected at <b>construction time</b> (statically detectable, per the
+     * rule-validation policy), rather than silently constructing a rule that
+     * simply never matches anything.
+     */
     @Test
-    void unknownTargetType_returnsFalse() {
-        assertFalse(ruleFor("Dragon").matches(aPredator()),
-                "An unrecognised target type must not match any entity");
+    void unknownTargetType_rejectedAtConstruction() {
+        RuleParseException ex = assertThrows(RuleParseException.class, () -> ruleFor("Dragon"));
+        assertTrue(ex.getMessage().contains("Dragon"));
     }
 }
