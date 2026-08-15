@@ -1,6 +1,10 @@
 # Build output
 target/
 
+# Runtime-generated, user-writable state (bootstrapped from bundled
+# src/main/resources defaults on first run -- see RuleRepository/SimulationConfig)
+config/
+
 # Tool-local / agent config (not project source)
 
 # IDE metadata
