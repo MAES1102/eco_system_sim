@@ -12,7 +12,7 @@ entirely in Java 21, built to satisfy two requirements set by the course:
    recompiling Java source.
 
 The system also demonstrates every OOP principle required by the course
-(§8), with real, load-bearing examples rather than manufactured ones.
+(§10), with real, load-bearing examples rather than manufactured ones.
 
 ## 2. The Discrete-Event Model
 
@@ -543,8 +543,9 @@ design — every rule terminates in bounded time and can't touch state outside
 the registered, clamped writable set.
 
 **"Difference between inclusion, parametric, overloading, coercion
-polymorphism?"** Use §10's table — and be ready to explain why the AST's
-`switch` is deliberately *not* cited as the inclusion-polymorphism example.
+polymorphism?"** Use §10.7/§10.8/§10.9/§10.10 — and be ready to explain why
+the AST's `switch` is deliberately *not* cited as the inclusion-polymorphism
+example.
 
 **"Show me a live extension without touching the parser."** Add one
 `RuleVocabulary.registerReadable(...)` line (e.g. expose `maxEnergy`),
