@@ -8,9 +8,6 @@ import javax.swing.SwingUtilities;
 /**
  * Main entry point for the Ecosystem Simulation.
  * Launches the integrated desktop application with GUI.
- * 
- * @author Ecosystem Simulation Team
- * @version 1.0
  */
 public class Main {
     

@@ -8,9 +8,6 @@ import java.awt.*;
 /**
  * Panel that displays real-time simulation statistics.
  * Shows population counts and current time step.
- * 
- * @author Ecosystem Simulation Team
- * @version 1.0
  */
 public class StatisticsPanel extends JPanel {
     

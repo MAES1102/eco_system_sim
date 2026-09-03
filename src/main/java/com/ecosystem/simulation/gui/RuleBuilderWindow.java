@@ -22,9 +22,6 @@ import java.io.PrintWriter;
  *
  * <p>The rule written to {@code rules.txt} always follows the engine format:</p>
  * <pre>Name | TargetType | field operator value | action</pre>
- *
- * @author Ecosystem Simulation Team
- * @version 3.0
  */
 public class RuleBuilderWindow extends JFrame {
 

@@ -10,9 +10,6 @@ package com.ecosystem.simulation.environment;
  * Key OOP Principles Demonstrated:
  * - Encapsulation: Private fields with public methods
  * - Single Responsibility: Only manages environmental conditions
- * 
- * @author Ecosystem Simulation Team
- * @version 1.0
  */
 public class Environment {
     

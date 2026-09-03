@@ -13,9 +13,6 @@ import java.util.List;
 /**
  * Panel that displays the world visualization.
  * Draws entities as colored circles based on their type.
- * 
- * @author Ecosystem Simulation Team
- * @version 1.0
  */
 public class WorldPanel extends JPanel {
     

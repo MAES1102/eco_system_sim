@@ -8,9 +8,6 @@ import java.awt.event.ActionListener;
 /**
  * Panel with simulation control buttons and speed selector.
  * Allows starting, pausing, and resetting the simulation.
- * 
- * @author Ecosystem Simulation Team
- * @version 1.0
  */
 public class ControlPanel extends JPanel {
     

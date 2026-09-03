@@ -12,9 +12,6 @@ package com.ecosystem.simulation.entities;
  * - Abstraction: Abstract class, defines common animal behaviors
  * - Encapsulation: Protected speed field with public methods
  * - Liskov Substitution: Only contains methods applicable to all animals
- * 
- * @author Ecosystem Simulation Team
- * @version 1.0
  */
 public abstract class Animal extends Organism implements Movable {
     

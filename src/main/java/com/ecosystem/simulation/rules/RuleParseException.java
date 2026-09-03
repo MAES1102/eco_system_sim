@@ -9,9 +9,6 @@ package com.ecosystem.simulation.rules;
  * Key OOP Principles Demonstrated:
  * - Exception Handling: Domain-specific exception for rule errors
  * - Encapsulation: Wraps error details specific to rule parsing
- * 
- * @author Ecosystem Simulation Team
- * @version 1.0
  */
 public class RuleParseException extends Exception {
     

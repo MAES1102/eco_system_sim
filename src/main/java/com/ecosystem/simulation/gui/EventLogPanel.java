@@ -19,9 +19,6 @@ import com.ecosystem.simulation.simulation.SimulationEventListener;
  * the domain stack ({@code SimulationEngine} → {@code Entity} subclasses) as a
  * plain interface reference.  This removes any Swing dependency from the domain
  * model while preserving identical runtime behaviour.</p>
- *
- * @author Ecosystem Simulation Team
- * @version 1.0
  */
 public class EventLogPanel extends JPanel implements SimulationEventListener {
     

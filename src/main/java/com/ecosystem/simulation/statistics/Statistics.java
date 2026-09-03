@@ -14,9 +14,6 @@ import java.util.Map;
  * Key OOP Principles Demonstrated:
  * - Encapsulation: Private data structures with public methods
  * - Single Responsibility: Only tracks and reports statistics
- * 
- * @author Ecosystem Simulation Team
- * @version 1.0
  */
 public class Statistics {
     

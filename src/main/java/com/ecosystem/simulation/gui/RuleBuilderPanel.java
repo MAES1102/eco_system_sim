@@ -27,9 +27,6 @@ import java.io.PrintWriter;
  *       </ul>
  *   </li>
  * </ol>
- *
- * @author Ecosystem Simulation Team
- * @version 7.0
  */
 public class RuleBuilderPanel extends JPanel {
 

@@ -8,9 +8,6 @@ import java.awt.*;
 /**
  * Panel that displays the world visualization.
  * Reuses WorldPanel logic for drawing entities.
- * 
- * @author Ecosystem Simulation Team
- * @version 1.0
  */
 public class ViewerPanel extends JPanel {
     

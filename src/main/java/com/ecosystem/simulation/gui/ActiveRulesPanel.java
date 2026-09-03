@@ -9,9 +9,6 @@ import java.util.List;
 /**
  * Panel that displays currently active rules in a human-readable format.
  * Shows rules as "Target Field Operator Value → Action"
- * 
- * @author Ecosystem Simulation Team
- * @version 1.0
  */
 public class ActiveRulesPanel extends JPanel {
     

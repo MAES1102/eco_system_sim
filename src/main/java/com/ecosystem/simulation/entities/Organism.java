@@ -11,9 +11,6 @@ package com.ecosystem.simulation.entities;
  * - Inheritance: Extends Entity, reuses id, position, and alive status
  * - Abstraction: Abstract class, defines biological behaviors
  * - Encapsulation: Protected fields with public methods
- * 
- * @author Ecosystem Simulation Team
- * @version 1.0
  */
 public abstract class Organism extends Entity {
     

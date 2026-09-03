@@ -13,9 +13,6 @@ import java.awt.event.ActionListener;
 /**
  * Main window for viewing the ecosystem simulation in real time.
  * Displays entities as colored circles and refreshes every 500ms.
- * 
- * @author Ecosystem Simulation Team
- * @version 1.0
  */
 public class SimulationViewer extends JFrame {
     

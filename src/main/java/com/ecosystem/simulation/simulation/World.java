@@ -17,9 +17,6 @@ import java.util.List;
  * - Composition: World contains Environment (has-a relationship)
  * - Encapsulation: Private entity list with public methods
  * - Single Responsibility: Manages entity storage and spatial queries
- * 
- * @author Ecosystem Simulation Team
- * @version 1.0
  */
 public class World {
     
