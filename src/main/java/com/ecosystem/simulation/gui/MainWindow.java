@@ -99,7 +99,6 @@ public class MainWindow extends JFrame {
         });
 
         setMinimumSize(new Dimension(800, 600));
-        setExtendedState(JFrame.MAXIMIZED_BOTH);
         setResizable(true);
 
         isPaused = true;

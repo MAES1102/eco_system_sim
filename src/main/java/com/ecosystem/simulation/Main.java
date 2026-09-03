@@ -2,6 +2,7 @@ package com.ecosystem.simulation;
 
 import com.ecosystem.simulation.gui.MainWindow;
 
+import javax.swing.JFrame;
 import javax.swing.SwingUtilities;
 
 /**
@@ -20,6 +21,9 @@ public class Main {
             public void run() {
                 MainWindow mainWindow = new MainWindow();
                 mainWindow.setVisible(true);
+                mainWindow.setExtendedState(JFrame.MAXIMIZED_BOTH);
+                mainWindow.toFront();
+                mainWindow.requestFocus();
             }
         });
     }

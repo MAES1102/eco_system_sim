@@ -259,29 +259,265 @@ event type: extend `SimulationEvent`, implement `execute(SchedulingContext)`
 one `EntityFactory.createX(...)` method and matching `SimulationConfig`
 keys.
 
-## 10. OOP Principle Traceability
+## 10. OOP Principles — one section each, with real code
 
-| Principle | Where | Why it's the real example |
-|---|---|---|
-| Encapsulation | `World.getEntities()` returns a defensive copy | Prevents external code from corrupting internal state through an aliased reference |
-| Information hiding | `Lexer`/`Parser` internals are private to `rules.lang` | `Rule`'s public API is unchanged even though the entire parsing strategy was replaced |
-| Abstraction | `Entity.update()`, `SimulationEvent.execute()` | Abstract contract, deferred implementation |
-| Inheritance | `Entity → Organism → Animal → {Predator, Herbivore}`, `Plant` | Each level adds genuinely new, non-redundant state |
-| Composition | `SimulationEngine` owns `World`/`RuleEngine`/`Statistics`/`EntityFactory`/the FEL | No is-a relationship exists between them |
-| Interface subtyping / multityping | `Predator implements Reproducible` while also being an `Animal` (`Movable`) | Two independent capabilities, modeled orthogonally (Plant is `Reproducible` but not `Movable`) |
-| Inclusion polymorphism | `List<Entity>`/FEL holding mixed concrete types, each dispatching its own `update()`/`execute()` | Core mechanism of the whole simulation loop — genuine dynamic dispatch |
-| Parametric polymorphism | `EventQueue<T extends SimulationEvent>` | Compile-time-safe generic queue; any future event subtype works unmodified |
-| Overloading | `Rule.evaluateCondition(Entity)` / `(EvaluationContext)`; `Statistics.recordBirth(type)` / `(type, count)` | Same name, different parameter lists, resolved at compile time |
-| Coercion | `Predator.attack()`: `(double) attackPower / (attackPower + defensePower)` | The cast forces implicit binary numeric promotion of the other `int` operand — **not** `Integer.parseInt`, which is explicit conversion, not coercion |
-| Exception handling | `RuleParseException` (checked, line+column), `SimulationException` (unchecked, enum-coded) | Checked for recoverable authoring errors; unchecked for programming-contract violations |
-| Extensibility | `RuleVocabulary.registerX(...)`, `SimulationEvent` subclassing | Genuinely Open/Closed — verified by the rule-DSL tests, which add vocabulary without touching `Rule`/`RuleEngine` |
+Each principle below is demonstrated by a genuinely load-bearing example from
+the final implementation — not a manufactured one added just to tick a box.
+Where a design decision could have gone another way, the reasoning is
+included, since that is what an oral examiner will probe.
+
+### 10.1 Encapsulation
+
+`World` never lets a caller obtain a live reference to its internal entity
+list — every read returns a defensive copy, so external code cannot corrupt
+the world's bookkeeping by mutating what it thinks is a private structure:
+
+```java
+// World.java
+public List<Entity> getEntities() {
+    return new ArrayList<>(this.entities);  // Return copy to preserve encapsulation
+}
+```
+
+Without the copy, `Predator.hunt()` iterating `world.getEntities()` while
+`World.addEntity()`/`removeEntity()` run elsewhere in the same tick could
+throw a `ConcurrentModificationException` or silently corrupt iteration —
+the copy is not decorative, it is what makes the rest of the entity-update
+loop safe to reason about.
+
+### 10.2 Information hiding
+
+`Rule`'s public contract (`matches`, `evaluateCondition`, `executeActions`,
+the getters) did not change at all when the entire parsing strategy was
+replaced — the old hand-rolled `switch`-based parser was deleted and
+replaced by `Lexer`/`Parser`/`RuleVocabulary`/`Evaluator`, and every external
+caller (`RuleEngine`, the GUI, all pre-existing tests) needed zero changes:
+
+```java
+// Rule.java — constructor is the only thing that changed internally
+public Rule(String name, String targetType, String conditionStr, String actionStr,
+            RuleVocabulary vocabulary, int lineNumber) throws RuleParseException {
+    // ... trivial field assignments (name, targetType, conditionStr, actionStr, vocabulary) omitted
+    this.targetClass = RuleVocabulary.resolveTargetType(targetType, lineNumber);
+    this.condition   = Parser.parseCondition(conditionStr, lineNumber);
+    this.actions     = Parser.parseActions(actionStr, lineNumber);
+    validateCondition(condition, lineNumber);
+    validateActions(lineNumber);
+}
+```
+
+This is the practical value of information hiding, not just the textbook
+definition: a caller who only ever used `rule.matches(entity)` and
+`rule.evaluateCondition(ctx)` was completely insulated from a rewrite of how
+"condition" is represented internally (string → AST).
+
+### 10.3 Abstraction
+
+`Entity` declares `update()` as abstract — it defines *that* every entity
+must be updatable each tick, not *how*:
+
+```java
+// Entity.java
+public abstract void update();
+```
+
+`SimulationEvent` does the same for `execute(SchedulingContext)`. Both are
+genuine abstractions because the base class cannot know the concrete
+behavior in advance: a `Plant` grows, a `Predator` hunts, a `DeathEvent`
+records a death, a `MovementEvent` does nothing at all — the contract is
+shared, the implementation is not.
+
+### 10.4 Inheritance
+
+```
+Entity (abstract)
+ └─ Organism (abstract)      adds energy, age, maxEnergy
+     ├─ Animal (abstract)    adds speed, visionRange; implements Movable
+     │   ├─ Predator         adds attackPower, fedCooldown
+     │   └─ Herbivore        adds defensePower, grazeCooldown
+     └─ Plant                adds growthRate
+```
+
+Every level adds genuinely new, non-redundant state — this was a deliberate
+design check: `Plant` is **not** placed under `Animal` even though both are
+organisms, because `Animal implements Movable` and a plant cannot move;
+forcing it under `Animal` would have violated Liskov substitution (code
+holding an `Animal` reference could legitimately call `move()` and expect it
+to do something).
+
+### 10.5 Composition
+
+```java
+// SimulationEngine.java
+private final World world;
+private final RuleVocabulary vocabulary;
+private final RuleEngine ruleEngine;
+private final Statistics statistics;
+private final EntityFactory entityFactory;
+private final EventQueue<SimulationEvent> eventQueue;   // the future-event list
+```
+
+`SimulationEngine` **has-a** `World`, `RuleEngine`, `Statistics`,
+`EntityFactory`, and the FEL — none of these is a kind of `SimulationEngine`,
+and none of them can outlive a running simulation in any meaningful sense, so
+composition (not inheritance, not a looser aggregation) is the correct
+relationship. `World` similarly owns its `Environment`.
+
+### 10.6 Interface-based subtyping and multityping
+
+```java
+public abstract class Animal extends Organism implements Movable { ... }
+public class Predator extends Animal implements Reproducible { ... }
+```
+
+A `Predator` is simultaneously an `Animal` (by inheritance), a `Movable`
+(via `Animal`), and a `Reproducible` (declared directly) — three independent
+types satisfied by one object, which is what multityping means in practice.
+The two interfaces are kept separate deliberately (Interface Segregation):
+`Plant` is `Reproducible` but **not** `Movable`, so it is never forced to
+implement a `move()` method that would have no sensible body.
+
+### 10.7 Inclusion polymorphism
+
+```java
+// EntityActivityEvent.execute(), called through the FEL for every concrete event type
+entity.update();   // entity's static type here is Entity; the actual method that
+                    // runs is chosen at runtime from {Predator, Herbivore, Plant}.update()
+```
+
+and, at the event level:
+
+```java
+// SimulationEngine.advanceTo()
+SimulationEvent event = eventQueue.dequeue();
+clock = event.getScheduledTime();
+event.execute(this);   // dispatches to DeathEvent/PredationEvent/ReproductionEvent/
+                        // MovementEvent/EntityActivityEvent/EnvironmentRegenerationEvent
+```
+
+This is the real mechanism the entire simulation loop runs on: the engine
+never asks "what kind of event is this?" — it just calls `execute()` through
+the base type and lets the JVM's dynamic dispatch pick the right override.
+This is deliberately **not** the same thing as the sealed-`switch` pattern
+used in the rule evaluator (see the note at the end of this section).
+
+### 10.8 Parametric polymorphism
+
+```java
+// EventQueue.java
+public class EventQueue<T extends SimulationEvent> {
+    private final PriorityQueue<T> heap;
+    public void enqueue(T event) { ... }
+    public T dequeue() { ... }
+}
+```
+
+The bound `T extends SimulationEvent` is what makes this a meaningful
+generic rather than decoration: the compiler rejects enqueueing anything
+that isn't a `SimulationEvent` at the call site, while the class itself
+never needs to know which concrete event subtype it holds. Only
+`EventQueue<SimulationEvent>` is instantiated in this project, but the bound
+still does real compile-time work, and any future, more specific event
+queue (e.g. one restricted to a narrower event family) would work with this
+class unmodified.
+
+### 10.9 Overloading polymorphism
+
+```java
+// Rule.java
+public boolean evaluateCondition(Entity entity) { ... }               // overload 1
+public boolean evaluateCondition(EvaluationContext ctx) { ... }       // overload 2
+
+// Statistics.java
+public void recordBirth(String entityType) { recordBirth(entityType, 1); }   // overload 1
+public void recordBirth(String entityType, int count) { ... }                // overload 2
+
+// SimulationException.java
+public SimulationException(String message) { super(message); }                    // overload 1
+public SimulationException(String message, Throwable cause) { super(message, cause); }  // overload 2
+public SimulationException(Code code) { super(buildMessage(code)); }              // overload 3
+```
+
+Each pair/triple is resolved at **compile time** by the compiler matching
+argument types to a signature — this is not the same mechanism as
+overriding (`update()` above), which is resolved at **runtime** from the
+object's actual class. Being able to state that distinction precisely is a
+common examiner probe.
+
+### 10.10 Coercion polymorphism
+
+```java
+// Predator.java, attack()
+double successChance = (double) this.attackPower / (this.attackPower + herbivore.getDefensePower());
+```
+
+`this.attackPower` and `herbivore.getDefensePower()` are both `int`. The
+explicit cast on the left operand forces Java's binary numeric promotion
+rule to widen the *other*, uncast `int` operand to `double` as well before
+the division runs — that implicit widening is the coercion. This is
+deliberately **not** illustrated with `Integer.parseInt(...)` (used, for
+example, in `SimulationConfig.getInt()` to read a configuration value) —
+that is an explicit method call performing conversion, not a language-level
+coercion, and conflating the two is a labeling mistake worth avoiding out
+loud in the exam.
+
+### 10.11 Exception handling
+
+Two custom exceptions, deliberately different in kind:
+
+```java
+// RuleParseException.java — checked, recoverable: a malformed rule is expected,
+// user-facing input, not a programming error.
+public class RuleParseException extends Exception {
+    public RuleParseException(String message, int lineNumber, int column) {
+        super(message + " (line " + lineNumber + ", column " + column + ")");
+        ...
+    }
+}
+
+// SimulationException.java — unchecked, a programming-contract violation.
+public SimulationException(SimulationException.Code code) { super(buildMessage(code)); }
+```
+
+`RuleParseException` is checked because callers (`RuleRepository`,
+`RuleEngine.loadRules`) are expected to catch it and recover — the whole
+"invalid file must not destroy the last valid rules" guarantee is built on
+this being a checked, always-handled exception, verified by
+`RuleRepositoryTest.reloadingCorruptedFile_preservesLastValidRules`.
+`SimulationException` is unchecked because its causes (e.g. negative world
+dimensions) indicate a bug in the caller, not a condition the program should
+routinely recover from.
+
+### 10.12 Extensibility (Open/Closed)
+
+```java
+// RuleVocabulary.java — adding a new rule-language attribute needs exactly this,
+// nothing in Lexer/Parser/Rule/RuleEngine changes.
+registerReadable("attackPower", Predator.class, ctx -> ((Predator) ctx.entity()).getAttackPower());
+registerWritable("attackPower", Predator.class, (ctx, newValue) ->
+        ((Predator) ctx.entity()).setAttackPower((int) clamp(newValue, 1, 50)));
+```
+
+This is verified, not just claimed: `RuleVocabularyValidationTest` and
+`ParserTest` add coverage against the *existing* registered vocabulary
+without ever touching `Rule.java`, `RuleEngine.java`, or the parser — proof
+that the extension point is real. The same pattern holds for
+`SimulationEvent` subclassing (a new event type needs only
+`execute(SchedulingContext)` implemented, nothing upstream changes) and for
+adding a new species via `EntityFactory`.
+
+---
 
 **A deliberate non-example, stated for honesty**: the rule AST's sealed
 interfaces + pattern-matching `switch` (`Evaluator`) are a modern,
 type-safe *alternative* to inclusion polymorphism, not an instance of it —
-there is no virtual dispatch there. It is cited under abstraction/closed-set
-exhaustiveness instead, and this distinction is itself good oral-exam
-material (see §11).
+there is no virtual dispatch there; the compiler exhaustively checks a fixed,
+closed set of cases instead. It is cited under abstraction/closed-set
+exhaustiveness (§10.3), not §10.7, and this distinction — *why* a sealed
+`switch` was chosen over a polymorphic `evaluate()` method on each AST node —
+is itself good oral-exam material (see §11): the AST's node set is fixed and
+closed by the grammar, whereas `Entity`/`SimulationEvent` are open extension
+points, which is exactly why one uses dispatch and the other doesn't.
 
 ## 11. Likely Oral-Exam Questions
 
