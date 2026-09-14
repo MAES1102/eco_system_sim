@@ -17,7 +17,8 @@ start
 :Predator.hunt() invoked\nfrom update();
 
 if (world == null?) then (yes)
-  :return;\nnote right: World reference\nnot yet injected
+  :return;
+  note right: World reference not yet injected
   stop
 else (no)
 endif

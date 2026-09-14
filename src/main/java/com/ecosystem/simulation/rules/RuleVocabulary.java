@@ -9,7 +9,9 @@ import com.ecosystem.simulation.entities.Plant;
 import com.ecosystem.simulation.entities.Predator;
 import com.ecosystem.simulation.entities.Reproducible;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -153,6 +155,38 @@ public class RuleVocabulary {
 
     Action command(String name) {
         return commands.get(name).action();
+    }
+
+    // ── read-only listings, for building a UI reference (e.g. RuleEditorPanel) ──────
+
+    /** One registered vocabulary entry: its name and the entity type required to use it. */
+    public record VocabularyEntry(String name, Class<?> requiredType) {}
+
+    /** Every registered readable attribute, in registration order. */
+    public List<VocabularyEntry> listReadables() {
+        List<VocabularyEntry> list = new ArrayList<>();
+        for (Map.Entry<String, ReadableEntry> e : readables.entrySet()) {
+            list.add(new VocabularyEntry(e.getKey(), e.getValue().requiredType()));
+        }
+        return list;
+    }
+
+    /** Every registered writable attribute, in registration order. */
+    public List<VocabularyEntry> listWritables() {
+        List<VocabularyEntry> list = new ArrayList<>();
+        for (Map.Entry<String, WritableEntry> e : writables.entrySet()) {
+            list.add(new VocabularyEntry(e.getKey(), e.getValue().requiredType()));
+        }
+        return list;
+    }
+
+    /** Every registered domain command, in registration order. */
+    public List<VocabularyEntry> listCommands() {
+        List<VocabularyEntry> list = new ArrayList<>();
+        for (Map.Entry<String, CommandEntry> e : commands.entrySet()) {
+            list.add(new VocabularyEntry(e.getKey(), e.getValue().requiredType()));
+        }
+        return list;
     }
 
     // ── default vocabulary ───────────────────────────────────────────────────

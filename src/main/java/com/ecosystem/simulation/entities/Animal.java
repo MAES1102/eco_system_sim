@@ -10,7 +10,7 @@ package com.ecosystem.simulation.entities;
  * Key OOP Principles Demonstrated:
  * - Inheritance: Extends Organism, reuses energy and age management
  * - Abstraction: Abstract class, defines common animal behaviors
- * - Encapsulation: Protected speed field with public methods
+ * - Information hiding: Private speed/visionRange fields, reachable only through accessors
  * - Liskov Substitution: Only contains methods applicable to all animals
  */
 public abstract class Animal extends Organism implements Movable {
@@ -19,7 +19,7 @@ public abstract class Animal extends Organism implements Movable {
      * Movement speed of this animal.
      * Higher values allow the animal to move further in one time step.
      */
-    protected double speed;
+    private double speed;
 
     /**
      * Search radius (in grid cells) used when looking for prey/food. Was
@@ -29,7 +29,7 @@ public abstract class Animal extends Organism implements Movable {
      * the original hardcoded values (10 for predators, 18 for herbivores) — see
      * each subclass's constructor.
      */
-    protected int visionRange = 10;
+    private int visionRange = 10;
 
     /**
      * Constructor for Animal.

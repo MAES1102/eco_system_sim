@@ -60,7 +60,13 @@ public class MainWindow extends JFrame {
         try {
             ruleRepository.loadActive();
         } catch (IOException | RuleParseException e) {
-            System.err.println("Warning: could not load active rules: " + e.getMessage());
+            // Recovery, not just logging: the engine's rule list is left exactly as
+            // RuleEngine's constructor set it up (empty), so the simulation still runs —
+            // with plain biological behavior and no rule-driven effects — instead of
+            // crashing on a missing/corrupted config/rules.txt. The user is told why,
+            // visibly, in the same log the running simulation already uses.
+            eventLogPanel.logEvent("Could not load config/rules.txt (" + e.getMessage()
+                    + ") -- starting with no active rules. Use the Rule Editor to add some.");
         }
 
         ruleEditorPanel = new RuleEditorPanel(ruleRepository);
@@ -71,14 +77,15 @@ public class MainWindow extends JFrame {
 
         setupControlActions();
 
-        setLayout(new BorderLayout());
+        setLayout(new BorderLayout(8, 8));
+        ((JPanel) getContentPane()).setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
 
         add(viewerPanel, BorderLayout.CENTER);
 
-        JPanel rightPanel = new JPanel(new BorderLayout());
+        JPanel rightPanel = new JPanel(new BorderLayout(0, 8));
 
-        JPanel middlePanel = new JPanel(new GridLayout(1, 3, 5, 5));
-        middlePanel.setPreferredSize(new Dimension(600, 460));
+        JPanel middlePanel = new JPanel(new GridLayout(1, 3, 8, 8));
+        middlePanel.setPreferredSize(new Dimension(760, 460));
         middlePanel.add(statisticsPanel);
         middlePanel.add(ruleEditorPanel);
         middlePanel.add(activeRulesPanel);
@@ -119,6 +126,10 @@ public class MainWindow extends JFrame {
         controlPanel.setResetActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) { resetSimulation(); }
+        });
+        controlPanel.setSettingsActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) { openSettings(); }
         });
         controlPanel.setSpeedActionListener(new ActionListener() {
             @Override
@@ -173,7 +184,10 @@ public class MainWindow extends JFrame {
         try {
             ruleRepository.loadActive();
         } catch (IOException | RuleParseException e) {
-            System.err.println("Warning: could not load active rules: " + e.getMessage());
+            // Same recovery as the constructor: continue with an empty rule set on
+            // this freshly-reset engine rather than leaving the window in a half-reset state.
+            eventLogPanel.logEvent("Could not load config/rules.txt (" + e.getMessage()
+                    + ") -- reset with no active rules. Use the Rule Editor to add some.");
         }
         simulationEngine.getRuleEngine().setRuleExecutionListener(new RuleEngine.RuleExecutionListener() {
             @Override
@@ -190,6 +204,22 @@ public class MainWindow extends JFrame {
         eventLogPanel.logEvent("Simulation reset");
 
         startTimers();
+    }
+
+    /**
+     * Opens the point-and-click settings editor. On "Apply &amp; Reset" the dialog has
+     * already written {@code config/simulation.properties}; resetting here reuses the
+     * exact same reload-and-rebuild path {@code resetSimulation()} already uses for the
+     * "Reset" button, rather than trying to hot-swap configuration into a running engine.
+     */
+    private void openSettings() {
+        SimulationConfig current = SimulationConfig.loadOrDefault(CONFIG_FILE, "/simulation.properties");
+        SettingsDialog dialog = new SettingsDialog(this, current, CONFIG_FILE);
+        dialog.setVisible(true);
+        if (dialog.wasApplied()) {
+            resetSimulation();
+            eventLogPanel.logEvent("Settings applied from Settings dialog; simulation reset with new values");
+        }
     }
 
     private void changeSpeed(String speed) {

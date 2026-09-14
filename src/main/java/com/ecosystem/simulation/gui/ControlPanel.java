@@ -14,31 +14,38 @@ public class ControlPanel extends JPanel {
     private JButton startButton;
     private JButton pauseButton;
     private JButton resetButton;
+    private JButton settingsButton;
     private JComboBox<String> speedCombo;
-    
+
     private ActionListener startActionListener;
     private ActionListener pauseActionListener;
     private ActionListener resetActionListener;
+    private ActionListener settingsActionListener;
     private ActionListener speedActionListener;
-    
+
     public ControlPanel() {
         setLayout(new BorderLayout());
-        setBorder(BorderFactory.createTitledBorder("Controls"));
-        
+        setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createTitledBorder("Controls"),
+                BorderFactory.createEmptyBorder(4, 8, 8, 8)));
+
         // Create components
         startButton = new JButton("Start");
         pauseButton = new JButton("Pause");
         resetButton = new JButton("Reset");
-        
+        settingsButton = new JButton("Settings...");
+        settingsButton.setToolTipText("Edit population/species/environment settings without touching a file.");
+
         String[] speeds = {"0.5x", "1x", "2x", "5x"};
         speedCombo = new JComboBox<>(speeds);
         speedCombo.setSelectedIndex(1);  // Default to 1x
-        
+
         // Button panel
-        JPanel buttonPanel = new JPanel();
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 8));
         buttonPanel.add(startButton);
         buttonPanel.add(pauseButton);
         buttonPanel.add(resetButton);
+        buttonPanel.add(settingsButton);
         
         // Speed panel
         JPanel speedPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
@@ -73,6 +80,14 @@ public class ControlPanel extends JPanel {
         resetButton.addActionListener(listener);
     }
     
+    public void setSettingsActionListener(ActionListener listener) {
+        if (settingsActionListener != null) {
+            settingsButton.removeActionListener(settingsActionListener);
+        }
+        settingsActionListener = listener;
+        settingsButton.addActionListener(listener);
+    }
+
     public void setSpeedActionListener(ActionListener listener) {
         if (speedActionListener != null) {
             speedCombo.removeActionListener(speedActionListener);

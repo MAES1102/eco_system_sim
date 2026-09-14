@@ -58,11 +58,11 @@ public class Plant extends Organism implements Reproducible {
 
     @Override
     public void reproduce() {
-        if (world == null || schedulingContext == null) {
+        if (getWorld() == null || getSchedulingContext() == null) {
             return;
         }
 
-        if (world.countAliveByType("Plant") >= populationCap) {
+        if (getWorld().countAliveByType("Plant") >= populationCap) {
             reproductionCooldown = 10;
             return;
         }
@@ -73,7 +73,7 @@ public class Plant extends Organism implements Reproducible {
             return;
         }
 
-        schedulingContext.schedule(new ReproductionEvent(schedulingContext.getClock(), this));
+        getSchedulingContext().schedule(new ReproductionEvent(getSchedulingContext().getClock(), this));
         this.reproductionCooldown = reproductionCooldownPeriod;
     }
 

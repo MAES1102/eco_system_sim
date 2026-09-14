@@ -40,74 +40,107 @@ public class WorldPanel extends JPanel {
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
-        
+
         if (world == null) {
             return;
         }
-        
+
+        Graphics2D g2 = (Graphics2D) g;
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
         int availableWidth = getWidth();
         int availableHeight = getHeight() - 30;
         int worldWidth = world.getWidth();
         int worldHeight = world.getHeight();
-        
+
         int scaleX = availableWidth / worldWidth;
         int scaleY = availableHeight / worldHeight;
         cellSize = Math.min(scaleX, scaleY);
         cellSize = Math.max(cellSize, 8);
-        
-        g.setColor(Color.LIGHT_GRAY);
+
+        g2.setColor(Color.LIGHT_GRAY);
         for (int x = 0; x <= worldWidth; x++) {
-            g.drawLine(x * cellSize, 0, x * cellSize, worldHeight * cellSize);
+            g2.drawLine(x * cellSize, 0, x * cellSize, worldHeight * cellSize);
         }
         for (int y = 0; y <= worldHeight; y++) {
-            g.drawLine(0, y * cellSize, worldWidth * cellSize, y * cellSize);
+            g2.drawLine(0, y * cellSize, worldWidth * cellSize, y * cellSize);
         }
-        
+
         List<Entity> entities = world.getEntities();
         for (Entity entity : entities) {
             if (entity.isAlive()) {
-                drawEntity(g, entity);
+                drawEntity(g2, entity);
             }
         }
-        
-        drawLegend(g, worldHeight * cellSize + 5);
+
+        drawLegend(g2, worldHeight * cellSize + 5);
     }
-    
-    private void drawEntity(Graphics g, Entity entity) {
+
+    /**
+     * Species are told apart by shape as well as color (predator = triangle,
+     * herbivore = circle, plant = square), not color alone.
+     */
+    private void drawEntity(Graphics2D g2, Entity entity) {
         int x = entity.getX() * cellSize;
         int y = entity.getY() * cellSize;
         int size = cellSize - 2;
-        
         Color color = getColorForEntity(entity);
-        g.setColor(color);
-        g.fillOval(x + 1, y + 1, size, size);
+
+        if (entity instanceof Predator) {
+            drawTriangle(g2, x + 1, y + 1, size, color);
+        } else if (entity instanceof Herbivore) {
+            drawCircle(g2, x + 1, y + 1, size, color);
+        } else if (entity instanceof Plant) {
+            drawSquare(g2, x + 1, y + 1, size, color);
+        } else {
+            drawCircle(g2, x + 1, y + 1, size, color);
+        }
     }
-    
-    private void drawLegend(Graphics g, int y) {
-        g.setColor(Color.BLACK);
-        g.setFont(new Font("Arial", Font.PLAIN, 11));
-        
+
+    private void drawTriangle(Graphics2D g2, int x, int y, int size, Color color) {
+        int[] xs = {x + size / 2, x, x + size};
+        int[] ys = {y, y + size, y + size};
+        g2.setColor(color);
+        g2.fillPolygon(xs, ys, 3);
+        g2.setColor(color.darker());
+        g2.drawPolygon(xs, ys, 3);
+    }
+
+    private void drawCircle(Graphics2D g2, int x, int y, int size, Color color) {
+        g2.setColor(color);
+        g2.fillOval(x, y, size, size);
+        g2.setColor(color.darker());
+        g2.drawOval(x, y, size, size);
+    }
+
+    private void drawSquare(Graphics2D g2, int x, int y, int size, Color color) {
+        g2.setColor(color);
+        g2.fillRoundRect(x, y, size, size, 3, 3);
+        g2.setColor(color.darker());
+        g2.drawRoundRect(x, y, size, size, 3, 3);
+    }
+
+    private void drawLegend(Graphics2D g2, int y) {
+        g2.setFont(new Font("Arial", Font.PLAIN, 11));
+
         int x = 10;
-        int circleSize = 10;
-        
-        g.setColor(Color.RED);
-        g.fillOval(x, y, circleSize, circleSize);
-        g.setColor(Color.BLACK);
-        g.drawString("Predator", x + circleSize + 5, y + circleSize - 1);
-        
+        int swatchSize = 10;
+
+        drawTriangle(g2, x, y, swatchSize, Color.RED);
+        g2.setColor(Color.BLACK);
+        g2.drawString("Predator", x + swatchSize + 5, y + swatchSize - 1);
+
         x += 100;
-        g.setColor(Color.GREEN);
-        g.fillOval(x, y, circleSize, circleSize);
-        g.setColor(Color.BLACK);
-        g.drawString("Herbivore", x + circleSize + 5, y + circleSize - 1);
-        
+        drawCircle(g2, x, y, swatchSize, Color.GREEN);
+        g2.setColor(Color.BLACK);
+        g2.drawString("Herbivore", x + swatchSize + 5, y + swatchSize - 1);
+
         x += 100;
-        g.setColor(Color.BLUE);
-        g.fillOval(x, y, circleSize, circleSize);
-        g.setColor(Color.BLACK);
-        g.drawString("Plant", x + circleSize + 5, y + circleSize - 1);
+        drawSquare(g2, x, y, swatchSize, Color.BLUE);
+        g2.setColor(Color.BLACK);
+        g2.drawString("Plant", x + swatchSize + 5, y + swatchSize - 1);
     }
-    
+
     private Color getColorForEntity(Entity entity) {
         if (entity instanceof Predator) {
             return Color.RED;

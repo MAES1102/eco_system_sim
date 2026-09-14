@@ -10,11 +10,11 @@ import com.ecosystem.simulation.events.ReproductionEvent;
  * Key OOP Principles Demonstrated:
  * - Inheritance: Extends Animal, reuses movement and speed
  * - Method Overriding: Overrides update() for predator behavior
- * - Encapsulation: Protected attackPower with public methods
+ * - Information hiding: Private attackPower, reachable only through accessors
  */
 public class Predator extends Animal implements Reproducible {
 
-    protected int attackPower;
+    private int attackPower;
 
     private Entity target;
     private int targetMemory;
@@ -51,7 +51,7 @@ public class Predator extends Animal implements Reproducible {
         this.targetMemory = 0;
         this.reproductionCooldown = 0;
         this.fedCooldown = 0;
-        this.visionRange = 10;
+        setVisionRange(10);
     }
 
     @Override
@@ -98,7 +98,7 @@ public class Predator extends Animal implements Reproducible {
      * @return true if a directed chase movement was performed
      */
     public boolean hunt() {
-        if (world == null) {
+        if (getWorld() == null) {
             return false;
         }
 
@@ -117,7 +117,7 @@ public class Predator extends Animal implements Reproducible {
             return true;
         }
 
-        java.util.List<Entity> neighbors = world.getNeighbors(this, visionRange);
+        java.util.List<Entity> neighbors = getWorld().getNeighbors(this, getVisionRange());
         Herbivore nearestHerbivore = null;
         int minDistance = Integer.MAX_VALUE;
 
@@ -169,12 +169,12 @@ public class Predator extends Animal implements Reproducible {
 
             double successChance = (double) this.attackPower / (this.attackPower + herbivore.getDefensePower());
             if (Math.random() < successChance) {
-                if (schedulingContext != null) {
-                    schedulingContext.schedule(new PredationEvent(schedulingContext.getClock(), this, herbivore, 45));
+                if (getSchedulingContext() != null) {
+                    getSchedulingContext().schedule(new PredationEvent(getSchedulingContext().getClock(), this, herbivore, 45));
                 }
                 return true;
-            } else if (statistics != null) {
-                statistics.recordFailedHunt();
+            } else if (getStatistics() != null) {
+                getStatistics().recordFailedHunt();
             }
         }
 
@@ -226,11 +226,11 @@ public class Predator extends Animal implements Reproducible {
      */
     @Override
     public void reproduce() {
-        if (world == null || schedulingContext == null) {
+        if (getWorld() == null || getSchedulingContext() == null) {
             return;
         }
 
-        if (world.countAliveByType("Predator") >= populationCap) {
+        if (getWorld().countAliveByType("Predator") >= populationCap) {
             reproductionCooldown = 10;
             return;
         }
@@ -241,7 +241,7 @@ public class Predator extends Animal implements Reproducible {
             return;
         }
 
-        schedulingContext.schedule(new ReproductionEvent(schedulingContext.getClock(), this));
+        getSchedulingContext().schedule(new ReproductionEvent(getSchedulingContext().getClock(), this));
         this.reproductionCooldown = reproductionCooldownPeriod;
     }
 }

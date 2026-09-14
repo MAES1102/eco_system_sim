@@ -96,12 +96,14 @@ oop|_sim/
 │   └── test/java/com/ecosystem/simulation/   (see Testing section)
 ```
 
-## Requirements
+## User Guide
+
+### Requirements
 
 - Java 21
 - Maven 3.6+
 
-## How to Run
+### How to Run
 
 Both entry points must be run from the project root (they resolve
 `config/rules.txt` and `config/simulation.properties` relative to the current
@@ -126,7 +128,7 @@ mvn exec:java -Dexec.mainClass="com.ecosystem.simulation.HeadlessRunner"
 mvn exec:java -Dexec.mainClass="com.ecosystem.simulation.HeadlessRunner" -Dexec.args="batch 20"
 ```
 
-## External Configuration
+### External Configuration
 
 `config/simulation.properties` (bootstrapped from the bundled default on
 first run) controls map size, initial populations, per-species stats (energy,

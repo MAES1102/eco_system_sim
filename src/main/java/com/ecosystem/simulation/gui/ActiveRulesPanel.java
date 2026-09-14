@@ -16,7 +16,9 @@ public class ActiveRulesPanel extends JPanel {
     
     public ActiveRulesPanel() {
         setLayout(new BorderLayout());
-        setBorder(BorderFactory.createTitledBorder("Active Rules"));
+        setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createTitledBorder("Active Rules"),
+                BorderFactory.createEmptyBorder(4, 8, 8, 8)));
         
         rulesTextArea = new JTextArea();
         rulesTextArea.setEditable(false);

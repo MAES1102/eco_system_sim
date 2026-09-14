@@ -27,7 +27,9 @@ public class EventLogPanel extends JPanel implements SimulationEventListener {
     
     public EventLogPanel() {
         setLayout(new BorderLayout());
-        setBorder(BorderFactory.createTitledBorder("Event Log"));
+        setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createTitledBorder("Event Log"),
+                BorderFactory.createEmptyBorder(4, 8, 8, 8)));
         
         logArea = new JTextArea();
         logArea.setEditable(false);

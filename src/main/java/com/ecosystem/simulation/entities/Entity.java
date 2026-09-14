@@ -11,15 +11,20 @@ import com.ecosystem.simulation.statistics.Statistics;
  *
  * Key OOP Principles Demonstrated:
  * - Abstraction: Abstract class with abstract method update()
- * - Encapsulation: Protected fields with public methods
+ * - Information hiding: every field is private, reachable only through the
+ *   accessors below, even from subclasses — see {@code docs/report} §2.2 for
+ *   the 3-step analysis (private / instance-or-class / constant-or-variable)
+ *   applied to {@link #id} (instance, constant) and {@link #nextId} (class,
+ *   variable).
  * - Inheritance: Base class for all entity types
  */
 public abstract class Entity {
 
-    protected int id;
-    protected int x;
-    protected int y;
-    protected boolean alive;
+    /** Assigned once at construction and never reassigned — constant for this instance. */
+    private final int id;
+    private int x;
+    private int y;
+    private boolean alive;
 
     private static int nextId = 1;
 
@@ -91,8 +96,8 @@ public abstract class Entity {
         return this.getClass().getSimpleName() + "#" + id + " at " + getPosition();
     }
 
-    protected World world;
-    protected Statistics statistics;
+    private World world;
+    private Statistics statistics;
 
     public void setWorld(World world) { this.world = world; }
     public World getWorld() { return this.world; }
@@ -100,7 +105,7 @@ public abstract class Entity {
     public void setStatistics(Statistics statistics) { this.statistics = statistics; }
     public Statistics getStatistics() { return this.statistics; }
 
-    protected SimulationEventListener simulationEventListener;
+    private SimulationEventListener simulationEventListener;
 
     public void setSimulationEventListener(SimulationEventListener simulationEventListener) {
         this.simulationEventListener = simulationEventListener;
@@ -114,7 +119,7 @@ public abstract class Entity {
      * Current simulation tick, kept in sync by {@code EntityActivityEvent}/the
      * engine so entities can timestamp events they schedule.
      */
-    protected int simulationTime = 0;
+    private int simulationTime = 0;
 
     public void setSimulationTime(int time) { this.simulationTime = time; }
     public int getSimulationTime() { return this.simulationTime; }
@@ -124,7 +129,7 @@ public abstract class Entity {
      * removal). Replaces the earlier raw {@code EventQueue} reference: entities never
      * enqueue directly onto a shared queue — they always go through this narrow contract.
      */
-    protected SchedulingContext schedulingContext;
+    private SchedulingContext schedulingContext;
 
     public void setSchedulingContext(SchedulingContext schedulingContext) {
         this.schedulingContext = schedulingContext;

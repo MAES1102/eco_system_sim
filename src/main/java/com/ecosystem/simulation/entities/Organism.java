@@ -10,7 +10,7 @@ package com.ecosystem.simulation.entities;
  * Key OOP Principles Demonstrated:
  * - Inheritance: Extends Entity, reuses id, position, and alive status
  * - Abstraction: Abstract class, defines biological behaviors
- * - Encapsulation: Protected fields with public methods
+ * - Information hiding: Private fields, reachable only through accessors
  */
 public abstract class Organism extends Entity {
     
@@ -19,19 +19,19 @@ public abstract class Organism extends Entity {
      * Energy is consumed by actions and gained by eating.
      * When energy reaches 0, the organism dies.
      */
-    protected int energy;
-    
+    private int energy;
+
     /**
      * Age of this organism in simulation time steps.
      * Increases each time the organism is updated.
      */
-    protected int age;
-    
+    private int age;
+
     /**
      * Maximum energy this organism can have.
      * Energy gained beyond this limit is lost.
      */
-    protected int maxEnergy;
+    private int maxEnergy;
     
     /**
      * Constructor for Organism.

@@ -10,104 +10,115 @@ import java.io.IOException;
 import java.util.List;
 
 /**
- * Free-text rule editor — the direct replacement for the old preset-dropdown
- * {@code RuleBuilderPanel}. Supports the full external-rule workflow: edit,
- * validate (with a precise line/column error message from the parser), save
- * (replaces the entire active rule set atomically via {@link RuleRepository}),
- * reload from disk, and remove one rule by name.
+ * Rule editor — composes rules exclusively through the point-and-click
+ * {@link RuleBuilderDialog}; there is no free-text authoring surface in this
+ * GUI (an earlier version had one, with a live vocabulary reference and
+ * error highlighting on top of it, but real usability feedback was that the
+ * whole idea of writing syntax to change behavior was the problem, not the
+ * ergonomics of writing it).
  *
- * <p>This panel never parses or interprets rule text itself — it only calls
- * {@link RuleRepository}, which delegates to {@link com.ecosystem.simulation.rules.RuleEngine}
- * and the {@link com.ecosystem.simulation.rules.lang.Parser}. Keeping parsing
- * out of the GUI layer means the same validation logic runs identically whether
- * a rule comes from this editor, a hand-edited file, or a unit test.</p>
+ * <p>What's currently active is shown by the separate, always-up-to-date
+ * {@link ActiveRulesPanel}, not duplicated here. This panel only offers the
+ * three actions that make sense once authoring is fully visual: build a new
+ * rule, reload the active file from disk (to pick up an edit made with an
+ * external text editor — {@code config/rules.txt} is still a plain text
+ * file), and remove one rule by name.</p>
+ *
+ * <p>This panel still never parses or interprets rule text itself — every
+ * path here still goes through {@link RuleRepository}, which delegates to
+ * {@link com.ecosystem.simulation.rules.RuleEngine} and the
+ * {@link com.ecosystem.simulation.rules.lang.Parser}. Only the *source* of
+ * the text changed (a dialog's dropdowns instead of a hand-typed line); the
+ * validation path is exactly the one every other caller already uses.</p>
  */
 public class RuleEditorPanel extends JPanel {
 
     private final RuleRepository repository;
-    private final JTextArea textArea;
     private final JLabel statusLabel;
     private Runnable onChanged;
 
     public RuleEditorPanel(RuleRepository repository) {
         this.repository = repository;
-        setLayout(new BorderLayout(4, 4));
-        setBorder(BorderFactory.createTitledBorder("Rule Editor (free text)"));
+        setLayout(new BorderLayout(6, 6));
+        setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createTitledBorder("Rule Editor"),
+                BorderFactory.createEmptyBorder(4, 8, 8, 8)));
 
-        textArea = new JTextArea();
-        textArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
-        textArea.setLineWrap(false);
-        textArea.setToolTipText("<html>One rule per line: Name | TargetType | condition | actionList<br>"
-                + "Example: ColdStress | Herbivore | env.temperature &lt; 5 AND energy &lt; 40 "
-                + "| energy -= 8, speed *= 0.8</html>");
-        JScrollPane scroll = new JScrollPane(textArea);
-        scroll.setPreferredSize(new Dimension(220, 150));
+        JLabel info = new JLabel("<html>Compose a rule by picking options — nothing to type<br>"
+                + "except numeric thresholds. See <b>Active Rules</b> for what's running.</html>");
+        info.setFont(new Font("SansSerif", Font.PLAIN, 11));
+
+        JButton buildRuleBtn = new JButton("Build Rule...");
+        JButton reloadBtn = new JButton("Reload from file");
+        JButton removeBtn = new JButton("Remove by name...");
+
+        buildRuleBtn.setToolTipText("Opens the visual rule builder; each rule you add is validated and saved immediately.");
+        reloadBtn.setToolTipText("Picks up config/rules.txt if it was edited outside this app.");
+        removeBtn.setToolTipText("Removes one rule by name from the active set and persists.");
+
+        buildRuleBtn.addActionListener(e -> openRuleBuilder());
+        reloadBtn.addActionListener(e -> doReload());
+        removeBtn.addActionListener(e -> doRemove());
+
+        JPanel buttons = new JPanel(new GridLayout(3, 1, 4, 4));
+        buttons.add(buildRuleBtn);
+        buttons.add(reloadBtn);
+        buttons.add(removeBtn);
+
+        JPanel center = new JPanel(new BorderLayout(4, 8));
+        center.add(info, BorderLayout.NORTH);
+        center.add(buttons, BorderLayout.CENTER);
 
         statusLabel = new JLabel(" ");
         statusLabel.setFont(new Font("SansSerif", Font.PLAIN, 11));
 
-        JButton validateBtn = new JButton("Validate");
-        JButton saveBtn = new JButton("Save (replace all)");
-        JButton reloadBtn = new JButton("Reload from file");
-        JButton removeBtn = new JButton("Remove by name...");
-
-        validateBtn.setToolTipText("Parse the text above without saving; shows the exact error if invalid.");
-        saveBtn.setToolTipText("Validates, then replaces the entire active rule set and persists it safely.");
-        reloadBtn.setToolTipText("Discards unsaved edits above and reloads the last saved active file.");
-        removeBtn.setToolTipText("Removes one rule by name from the active set and persists.");
-
-        validateBtn.addActionListener(e -> doValidate());
-        saveBtn.addActionListener(e -> doSave());
-        reloadBtn.addActionListener(e -> doReload());
-        removeBtn.addActionListener(e -> doRemove());
-
-        JPanel buttons = new JPanel(new GridLayout(2, 2, 4, 4));
-        buttons.add(validateBtn);
-        buttons.add(saveBtn);
-        buttons.add(reloadBtn);
-        buttons.add(removeBtn);
-
-        JPanel south = new JPanel(new BorderLayout(2, 2));
-        south.add(statusLabel, BorderLayout.NORTH);
-        south.add(buttons, BorderLayout.CENTER);
-
-        add(scroll, BorderLayout.CENTER);
-        add(south, BorderLayout.SOUTH);
-
-        populateFromEngine();
+        add(center, BorderLayout.CENTER);
+        add(statusLabel, BorderLayout.SOUTH);
     }
 
-    /** Registers a callback fired after any successful save/reload/remove, so the caller can refresh other panels. */
+    /** Registers a callback fired after any successful add/reload/remove, so the caller can refresh other panels. */
     public void setOnChanged(Runnable onChanged) {
         this.onChanged = onChanged;
     }
 
-    private void doValidate() {
-        try {
-            List<Rule> parsed = repository.validateCandidate(textArea.getText());
-            setStatus("Valid — " + parsed.size() + " rule(s) parse successfully.", false);
-        } catch (RuleParseException ex) {
-            setStatus("Invalid: " + ex.getMessage(), true);
-        }
+    private void openRuleBuilder() {
+        Window owner = SwingUtilities.getWindowAncestor(this);
+        Frame frameOwner = (owner instanceof Frame) ? (Frame) owner : null;
+        RuleBuilderDialog dialog = new RuleBuilderDialog(frameOwner, repository.getEngine().getVocabulary(), this::addRule);
+        dialog.setVisible(true);
     }
 
-    private void doSave() {
+    /**
+     * Validates one rule-builder-composed line against the current active set and,
+     * on success, persists it immediately — "Add" in the dialog is now the only save
+     * step there is. Returns {@code null} on success or a message to show in the
+     * dialog on failure (the dialog's own status label reflects this, not just an
+     * optimistic "added" assumption).
+     */
+    private String addRule(String ruleText) {
+        StringBuilder combined = new StringBuilder();
+        for (Rule r : repository.getEngine().getRules()) {
+            combined.append(r.toString()).append('\n');
+        }
+        combined.append(ruleText);
         try {
-            List<Rule> parsed = repository.validateCandidate(textArea.getText());
+            List<Rule> parsed = repository.validateCandidate(combined.toString());
             repository.replaceActive(parsed);
-            setStatus("Saved " + parsed.size() + " rule(s) to " + repository.getActiveFile(), false);
+            setStatus("Added and saved: " + ruleText, false);
             fireChanged();
+            return null;
         } catch (RuleParseException ex) {
-            setStatus("Not saved (invalid): " + ex.getMessage(), true);
+            setStatus("Not saved: " + ex.getMessage(), true);
+            return ex.getMessage();
         } catch (IOException ex) {
             setStatus("Save failed: " + ex.getMessage(), true);
+            return ex.getMessage();
         }
     }
 
     private void doReload() {
         try {
             repository.loadActive();
-            populateFromEngine();
             setStatus("Reloaded from " + repository.getActiveFile(), false);
             fireChanged();
         } catch (IOException ex) {
@@ -124,7 +135,6 @@ public class RuleEditorPanel extends JPanel {
         }
         try {
             repository.removeAndSave(name.trim());
-            populateFromEngine();
             setStatus("Removed '" + name.trim() + "' (if it existed) and saved.", false);
             fireChanged();
         } catch (IOException ex) {
@@ -132,16 +142,9 @@ public class RuleEditorPanel extends JPanel {
         }
     }
 
-    private void populateFromEngine() {
-        StringBuilder sb = new StringBuilder();
-        for (Rule r : repository.getEngine().getRules()) {
-            sb.append(r.toString()).append('\n');
-        }
-        textArea.setText(sb.toString());
-    }
-
     private void setStatus(String message, boolean error) {
         statusLabel.setForeground(error ? new Color(0xB00020) : new Color(0x1B5E20));
+        statusLabel.setFont(statusLabel.getFont().deriveFont(error ? Font.BOLD : Font.PLAIN));
         statusLabel.setText(message);
     }
 

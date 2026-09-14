@@ -10,23 +10,42 @@ import java.awt.*;
  * Shows population counts and current time step.
  */
 public class StatisticsPanel extends JPanel {
-    
+
+    // Same hues WorldPanel uses for predator/herbivore/plant shapes, darkened
+    // for legible text on a white background (pure Color.GREEN especially is
+    // low-contrast as text, even though it reads fine as a filled shape).
+    private static final Color PREDATOR_COLOR = Color.RED.darker();
+    private static final Color HERBIVORE_COLOR = Color.GREEN.darker();
+    private static final Color PLANT_COLOR = Color.BLUE.darker();
+
     private JLabel predatorLabel;
     private JLabel herbivoreLabel;
     private JLabel plantLabel;
     private JLabel totalLabel;
     private JLabel timeStepLabel;
-    
+
     public StatisticsPanel() {
         setLayout(new GridLayout(5, 1, 5, 5));
-        setBorder(BorderFactory.createTitledBorder("Statistics"));
-        
+        setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createTitledBorder("Statistics"),
+                BorderFactory.createEmptyBorder(4, 8, 8, 8)));
+
         predatorLabel = new JLabel("Predators: 0");
         herbivoreLabel = new JLabel("Herbivores: 0");
         plantLabel = new JLabel("Plants: 0");
         totalLabel = new JLabel("Total Population: 0");
         timeStepLabel = new JLabel("Time Step: 0");
-        
+
+        predatorLabel.setForeground(PREDATOR_COLOR);
+        herbivoreLabel.setForeground(HERBIVORE_COLOR);
+        plantLabel.setForeground(PLANT_COLOR);
+
+        Font bold = predatorLabel.getFont().deriveFont(Font.BOLD);
+        predatorLabel.setFont(bold);
+        herbivoreLabel.setFont(bold);
+        plantLabel.setFont(bold);
+        totalLabel.setFont(bold);
+
         add(predatorLabel);
         add(herbivoreLabel);
         add(plantLabel);

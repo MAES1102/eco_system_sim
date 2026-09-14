@@ -8,7 +8,7 @@ import com.ecosystem.simulation.events.ReproductionEvent;
  */
 public class Herbivore extends Animal implements Reproducible {
 
-    protected int defensePower;
+    private int defensePower;
     private int reproductionCooldown;
     private int grazeCooldown;
 
@@ -27,7 +27,7 @@ public class Herbivore extends Animal implements Reproducible {
         this.defensePower = defensePower;
         this.reproductionCooldown = 0;
         this.grazeCooldown = 0;
-        this.visionRange = 18;
+        setVisionRange(18);
     }
 
     @Override
@@ -75,11 +75,11 @@ public class Herbivore extends Animal implements Reproducible {
      * bug, where grazing bypassed the single death-recording path.
      */
     public boolean graze() {
-        if (world == null) {
+        if (getWorld() == null) {
             return false;
         }
 
-        java.util.List<Entity> neighbors = world.getNeighbors(this, visionRange);
+        java.util.List<Entity> neighbors = getWorld().getNeighbors(this, getVisionRange());
         Plant nearestPlant = null;
         int minDistance = Integer.MAX_VALUE;
 
@@ -113,8 +113,8 @@ public class Herbivore extends Animal implements Reproducible {
             if (minDistance <= 2 && grazeCooldown == 0) {
                 gainEnergy(20);
                 grazeCooldown = 5;
-                if (simulationEventListener != null) {
-                    simulationEventListener.onEntityEvent("consumed plant", "Herbivore");
+                if (getSimulationEventListener() != null) {
+                    getSimulationEventListener().onEntityEvent("consumed plant", "Herbivore");
                 }
                 nearestPlant.scheduleRemoval("grazed");
             }
@@ -172,11 +172,11 @@ public class Herbivore extends Animal implements Reproducible {
 
     @Override
     public void reproduce() {
-        if (world == null || schedulingContext == null) {
+        if (getWorld() == null || getSchedulingContext() == null) {
             return;
         }
 
-        if (world.countAliveByType("Herbivore") >= populationCap) {
+        if (getWorld().countAliveByType("Herbivore") >= populationCap) {
             reproductionCooldown = 10;
             return;
         }
@@ -187,7 +187,7 @@ public class Herbivore extends Animal implements Reproducible {
             return;
         }
 
-        schedulingContext.schedule(new ReproductionEvent(schedulingContext.getClock(), this));
+        getSchedulingContext().schedule(new ReproductionEvent(getSchedulingContext().getClock(), this));
         this.reproductionCooldown = reproductionCooldownPeriod;
     }
 }

@@ -104,27 +104,34 @@ public class Statistics {
         for (int i = 0; i < count; i++) {
             this.birthCount++;
             incrementPopulation(entityType);
-            switch (entityType) {
-                case "Predator":  this.predatorBirths++;  break;
-                case "Herbivore": this.herbivoreBirths++; break;
-                case "Plant":     this.plantBirths++;     break;
-            }
+            adjustSpeciesCounter(entityType, true);
         }
     }
-    
+
     /**
      * Records a death event for a specific entity type.
      * Called exclusively by SimulationEngine.removeDeadEntities() to avoid double-counting.
-     * 
+     *
      * @param entityType The type of entity that died
      */
     public void recordDeath(String entityType) {
         this.deathCount++;
         decrementPopulation(entityType);
+        adjustSpeciesCounter(entityType, false);
+    }
+
+    /**
+     * The one place this class enumerates the known species, used by both
+     * {@link #recordBirth} and {@link #recordDeath} instead of each repeating
+     * its own {@code Predator}/{@code Herbivore}/{@code Plant} switch.
+     *
+     * @param birth {@code true} to bump that species' birth counter, {@code false} for its death counter
+     */
+    private void adjustSpeciesCounter(String entityType, boolean birth) {
         switch (entityType) {
-            case "Predator":  this.predatorDeaths++;  break;
-            case "Herbivore": this.herbivoreDeaths++; break;
-            case "Plant":     this.plantDeaths++;     break;
+            case "Predator":  if (birth) this.predatorBirths++;  else this.predatorDeaths++;  break;
+            case "Herbivore": if (birth) this.herbivoreBirths++; else this.herbivoreDeaths++; break;
+            case "Plant":     if (birth) this.plantBirths++;     else this.plantDeaths++;     break;
         }
     }
 
